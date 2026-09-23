@@ -55,3 +55,11 @@ class DocumentChunk(BaseModel):
             strategy=strategy,
             metadata=metadata or {},
         )
+
+
+class RankedChunk(BaseModel):
+    """Represents a chunk associated with its retrieval or reranking score and position."""
+
+    chunk: DocumentChunk
+    score: float
+    rank: int

@@ -229,28 +229,28 @@ Implement a modular embedding abstraction supporting CPU-optimized local models 
 Build the comparative retrieval engine that implements Dense vector search, Lexical BM25 keyword search, reciprocal rank fusion (RRF), relative score normalization (RSN), and neural cross-encoder reranking.
 
 ### Detailed Engineering Tasks
-- [ ] **Lexical Retriever (`backend/app/engine/retrievers/bm25.py`)**:
+- [x] **Lexical Retriever (`backend/app/engine/retrievers/bm25.py`)**:
   - In-process `BM25Retriever` using `rank-bm25` (Okapi BM25 with $k_1=1.5, b=0.75$).
   - Tokenization pipeline: lowercasing, punctuation stripping, language-specific stopword removal (supporting English and Bengali).
   - Corpus indexing: Cache BM25 inverted index to disk (`.bm25.pkl`) alongside chunk metadata for fast reloading.
-- [ ] **Dense Vector Retriever (`backend/app/engine/retrievers/dense.py`)**:
+- [x] **Dense Vector Retriever (`backend/app/engine/retrievers/dense.py`)**:
   - Query vector generation via configured `EmbeddingProvider`.
   - Qdrant ANN search with configurable `top_k` (e.g., $K=20$) and optional metadata filtering.
-- [ ] **Score Fusion Layer (`backend/app/engine/retrievers/hybrid.py`)**:
+- [x] **Score Fusion Layer (`backend/app/engine/retrievers/hybrid.py`)**:
   - **Reciprocal Rank Fusion (RRF)**:
     $$RRF(d) = \sum_{m \in M} \frac{1}{k + r_m(d)}$$
     where $M = \{\text{dense}, \text{bm25}\}$, rank $r_m(d) \in [1, K]$, and default smoothing constant $k=60$.
   - **Relative Score Normalization (RSN)**:
     $$s_{\text{norm}}(d) = \frac{s(d) - \min_j s(d_j)}{\max_j s(d_j) - \min_j s(d_j) + \epsilon}$$
     Weighted linear combination: $S_{\text{final}}(d) = \alpha \cdot s_{\text{dense\_norm}}(d) + (1 - \alpha) \cdot s_{\text{bm25\_norm}}(d)$.
-- [ ] **Neural Cross-Encoder Reranker (`backend/app/engine/rerankers/`)**:
+- [x] **Neural Cross-Encoder Reranker (`backend/app/engine/rerankers/`)**:
   - `BaseReranker`: `rerank(query: str, candidates: list[DocumentChunk], top_n: int) -> list[RankedChunk]`.
   - `CrossEncoderReranker`: Uses `cross-encoder/ms-marco-MiniLM-L-6-v2` to compute query-chunk cross-attention relevance logits.
   - `FlashRankReranker`: Lightweight CPU-based ONNX cross-encoder fallback (`ms-marco-TinyBERT-L-2-v2`).
-- [ ] **Automated Tests (`backend/tests/unit/test_retrieval.py`, `test_fusion.py`)**:
+- [x] **Automated Tests (`backend/tests/unit/test_retrieval.py`, `test_fusion.py`)**:
   - Mathematical verification of RRF scores matching manual calculation on a fixed candidate ranking fixture.
   - Deduplication test: Assert no document chunk appears twice in fused results.
-- [ ] **Verification Gate C**:
+- [x] **Verification Gate C**:
   - `ruff check app tests` and `mypy app` pass with 0 errors.
   - Unit tests prove RRF and RSN mathematically conform to `SYSTEM_ARCHITECTURE.md`.
   - Latency benchmarks prove hybrid fusion adds $< 10$ms overhead over single retrieval.

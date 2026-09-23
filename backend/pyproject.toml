@@ -15,6 +15,8 @@ dependencies = [
     "qdrant-client>=1.12.0",
     "numpy>=1.26.0",
     "fastembed>=0.4.0",
+    "rank-bm25>=0.2.2",
+    "flashrank>=0.2.0",
 ]
 
 [project.optional-dependencies]
@@ -67,3 +69,10 @@ minversion = "8.0"
 addopts = "-ra -q"
 testpaths = ["tests"]
 pythonpath = ["."]
+
+[[tool.mypy.overrides]]
+module = [
+    "rank_bm25.*",
+    "flashrank.*",
+]
+ignore_missing_imports = true
