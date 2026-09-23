@@ -1,4 +1,4 @@
-﻿"""Unit tests for Phase F2: Cartesian Orchestrator, Topology Resolution, and Dry-Run Planning."""
+"""Unit tests for Phase F2: Cartesian Orchestrator, Topology Resolution, and Dry-Run Planning."""
 
 import pytest
 
