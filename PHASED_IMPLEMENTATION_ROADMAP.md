@@ -166,27 +166,27 @@ RAGBench-Evaluation-Lab/
 Build an industrial-strength document ingestion engine capable of parsing multiple file formats, extracting rich front-matter metadata, and segmenting documents using 4 distinct, parameterizable chunking strategies with collision-free cryptographic hashing.
 
 ### Detailed Engineering Tasks
-- [ ] **Data Schema Definition (`backend/app/schemas/document.py`, `chunk.py`)**:
+- [x] **Data Schema Definition (`backend/app/schemas/document.py`, `chunk.py`)**:
   - `RawDocument`: `doc_id`, `filename`, `content`, `metadata: dict[str, Any]`, `domain: str`, `file_type: str`, `checksum: str`.
   - `DocumentChunk`: `chunk_id`, `doc_id`, `chunk_index`, `content`, `token_count`, `char_count`, `start_char`, `end_char`, `strategy: str`, `metadata: dict[str, Any]`.
   - Enforce deterministic hashing:
     $$\text{chunk\_id} = \text{sha256}(\text{doc\_id} + \text{str}(\text{chunk\_index}) + \text{content\_normalized})$$
-- [ ] **Document Parsers (`backend/app/engine/parsers/`)**:
+- [x] **Document Parsers (`backend/app/engine/parsers/`)**:
   - `BaseDocumentParser`: Abstract base class with async `parse(file_path: Path) -> RawDocument`.
   - `MarkdownParser`: Extracts YAML front-matter, header hierarchies (`#`, `##`, `###`), tables, and code fences. Preserves header path context for each sub-section.
   - `PDFParser`: Page-by-page extraction via `pypdf`, tracking page numbers and bounding offsets.
   - `PlainTextParser`: Clean Unicode normalization (NFKC), strip non-printable characters.
-- [ ] **Deterministic Chunkers (`backend/app/engine/chunkers/`)**:
+- [x] **Deterministic Chunkers (`backend/app/engine/chunkers/`)**:
   - `BaseChunker`: Abstract interface `chunk(document: RawDocument, **params) -> list[DocumentChunk]`.
   - `FixedTokenChunker`: Slotted token windows with configurable `chunk_size` (e.g., 256, 512, 1024) and `chunk_overlap` (e.g., 32, 64) using `tiktoken` (`cl100k_base` / `o200k_base`).
   - `RecursiveCharacterChunker`: Hierarchical splitting on separators `["\n\n", "\n", ". ", " ", ""]` ensuring chunks do not break mid-sentence unless forced by token limits.
   - `SentenceBoundaryChunker`: Sentence-aware boundary extraction using regex and language boundary rules (supporting English and Bengali full stops: `.` and `।`).
   - `SemanticSimilarityChunker`: Computes cosine distance between adjacent sliding sentences; inserts chunk boundary when semantic distance exceeds threshold $\tau$ (e.g., $\tau \ge 0.82$).
-- [ ] **Automated Tests (`backend/tests/unit/test_chunkers.py`, `test_parsers.py`)**:
+- [x] **Automated Tests (`backend/tests/unit/test_chunkers.py`, `test_parsers.py`)**:
   - Test zero data loss: concatenated text of non-overlapping chunks preserves 100% of non-whitespace characters.
   - Test boundary integrity: verify code blocks and Markdown tables are not split across chunks when within size budget.
   - Test deterministic reproducibility: chunk IDs and boundary indices match across repeated runs.
-- [ ] **Verification Gate A**:
+- [x] **Verification Gate A**:
   - `ruff check app tests` and `mypy app` pass with 0 errors.
   - Unit tests verify 0 chunk loss and boundary validity across synthetic Markdown, PDF, and code files.
   - Benchmark test verifying $\ge 1,000$ pages processed in $< 5$ seconds locally.
