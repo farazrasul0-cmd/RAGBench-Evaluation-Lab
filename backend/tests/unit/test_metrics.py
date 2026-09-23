@@ -245,3 +245,95 @@ def test_citation_edge_cases() -> None:
     res_empty = evaluate_citations("", {}, classifier)
     assert res_empty.citation_precision == 0.0
     assert res_empty.citation_recall == 0.0
+
+
+# =========================================================================
+# 4. Corrective Audit Regression Tests (Duplicate IDs & Nonexistent Sources)
+# =========================================================================
+
+
+def test_duplicate_retrieval_regression() -> None:
+    """Regression tests verifying duplicate retrieved IDs do not inflate metrics."""
+    # 1. Precision@2 with duplicate retrieved items: denominator is 2, distinct hits is 1
+    p2 = precision_at_k(["A", "A"], {"A"}, 2)
+    assert p2 == 0.5
+
+    # 2. Recall@2 with duplicate retrieved items: distinct hits is 1, total relevant is 1
+    r2 = recall_at_k(["A", "A"], {"A"}, 2)
+    assert r2 == 1.0
+    assert r2 <= 1.0
+
+    # 3. NDCG@3 with duplicate retrieved items: only first 'A' gets relevance gain
+    ndcg3 = ndcg_at_k(["A", "A", "A"], {"A": 1.0}, 3)
+    assert ndcg3 == 1.0
+    assert ndcg3 <= 1.0
+
+    # 4. Mixed ranking where duplicates occur before and after other relevant items
+    # retrieved = ["A", "A", "B"], ground_truth = {"A": 1.0, "B": 1.0}, k = 3
+    # Actual gains: [1.0, 0.0, 1.0] -> DCG@3 = 1.0/log2(2) + 0 + 1.0/log2(4) = 1.0 + 0.5 = 1.5
+    # Ideal gains: [1.0, 1.0] -> IDCG@3 = 1.0/log2(2) + 1.0/log2(3) = 1.0 + 1/log2(3)
+    mixed_ndcg = ndcg_at_k(["A", "A", "B"], {"A": 1.0, "B": 1.0}, 3)
+    expected_mixed_dcg = 1.5
+    expected_mixed_idcg = 1.0 + (1.0 / math.log2(3.0))
+    expected_mixed_ndcg = expected_mixed_dcg / expected_mixed_idcg
+    assert pytest.approx(mixed_ndcg, rel=1e-6) == expected_mixed_ndcg
+    assert 0.0 <= mixed_ndcg <= 1.0
+
+
+def test_citation_nonexistent_source_id_regression() -> None:
+    """Verify citations to nonexistent source IDs are safely handled and not credited."""
+    classifier = MockEntailmentClassifier()
+    context_sources = {1: "FastAPI is a modern asynchronous framework."}
+
+    # Answer cites [Source 99], which is absent from context_sources
+    answer = "FastAPI offers automated OpenAPI docs [Source 99]."
+    result = evaluate_citations(answer, context_sources, classifier)
+
+    assert result.total_citations == 1
+    assert result.valid_citations == 0
+    assert result.citation_precision == 0.0
+    assert result.citation_recall == 0.0
+    assert len(result.citation_mappings) == 1
+    mapping = result.citation_mappings[0]
+    assert mapping["source_id"] == 99
+    assert mapping["is_entailed"] is False
+    assert mapping["reason"] == "Source ID not found in context"
+
+
+def test_independent_mathematical_fixtures() -> None:
+    """Hand-calculated mathematical verification fixtures independently tested."""
+    # Fixture A: retrieved = ["A", "A"], relevant = {"A"}, K = 2
+    res_a = evaluate_ir_metrics(["A", "A"], {"A"}, k=2)
+    assert res_a.precision == 0.5
+    assert res_a.recall == 1.0
+    assert res_a.mrr == 1.0
+    assert res_a.hit == 1.0
+    assert res_a.ndcg == 1.0
+
+    # Fixture B: retrieved = ["X", "A", "A"], relevant = {"A"}, K = 3
+    # DCG@3 = 0.0 + (2^1 - 1)/log2(3) + 0.0 = 1.0 / log2(3)
+    # IDCG@3 = (2^1 - 1)/log2(2) = 1.0
+    # NDCG@3 = (1.0 / log2(3)) / 1.0 = 1.0 / log2(3) ? 0.63092975
+    res_b = evaluate_ir_metrics(["X", "A", "A"], {"A"}, k=3)
+    assert pytest.approx(res_b.precision, rel=1e-6) == (1.0 / 3.0)
+    assert res_b.recall == 1.0
+    assert res_b.mrr == 0.5
+    assert res_b.hit == 1.0
+    expected_ndcg_b = 1.0 / math.log2(3.0)
+    assert pytest.approx(res_b.ndcg, rel=1e-6) == expected_ndcg_b
+
+    # Fixture C: Graded relevance duplicate case
+    # retrieved = ["A", "A", "B"], ground_truth = {"A": 3.0, "B": 1.0}, K = 3
+    # Gains: Rank 1 ("A") -> (2^3 - 1)/log2(2) = 7.0
+    #        Rank 2 ("A", duplicate) -> 0.0
+    #        Rank 3 ("B") -> (2^1 - 1)/log2(4) = 0.5
+    # Total DCG@3 = 7.5
+    # Ideal gains sorted: [3.0, 1.0] -> IDCG@3 = 7.0/log2(2) + 1.0/log2(3) = 7.0 + 1/log2(3)
+    # Expected NDCG@3 = 7.5 / (7.0 + 1/log2(3)) ? 0.982842
+    graded_rel = {"A": 3.0, "B": 1.0}
+    ndcg_c = ndcg_at_k(["A", "A", "B"], graded_rel, k=3)
+    expected_dcg_c = 7.5
+    expected_idcg_c = 7.0 + (1.0 / math.log2(3.0))
+    expected_ndcg_c = expected_dcg_c / expected_idcg_c
+    assert pytest.approx(ndcg_c, rel=1e-6) == expected_ndcg_c
+    assert 0.0 <= ndcg_c <= 1.0

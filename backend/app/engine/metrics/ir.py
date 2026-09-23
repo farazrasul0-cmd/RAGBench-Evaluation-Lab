@@ -22,12 +22,12 @@ def recall_at_k(
     ground_truth: Sequence[str] | set[str],
     k: int,
 ) -> float:
-    """Recall@K = |Retrieved[:K] ∩ GroundTruth| / |GroundTruth|"""
+    """Recall@K = |set(Retrieved[:K]) & GroundTruth| / |GroundTruth|"""
     if k <= 0 or not ground_truth:
         return 0.0
 
     gt_set = set(ground_truth)
-    hits = sum(1 for item in retrieved[:k] if item in gt_set)
+    hits = len(set(retrieved[:k]) & gt_set)
     return hits / float(len(gt_set))
 
 
@@ -36,12 +36,12 @@ def precision_at_k(
     ground_truth: Sequence[str] | set[str],
     k: int,
 ) -> float:
-    """Precision@K = |Retrieved[:K] ∩ GroundTruth| / K"""
+    """Precision@K = |set(Retrieved[:K]) & GroundTruth| / K"""
     if k <= 0:
         return 0.0
 
     gt_set = set(ground_truth)
-    hits = sum(1 for item in retrieved[:k] if item in gt_set)
+    hits = len(set(retrieved[:k]) & gt_set)
     return hits / float(k)
 
 
@@ -88,8 +88,16 @@ def ndcg_at_k(
     if not rel_map or all(v <= 0.0 for v in rel_map.values()):
         return 0.0
 
-    # Actual gains for retrieved items
-    actual_gains = [rel_map.get(item, 0.0) for item in retrieved[:k]]
+    # Actual gains for retrieved items: first occurrence receives gain, duplicates receive 0.0
+    seen_items: set[str] = set()
+    actual_gains: list[float] = []
+    for item in retrieved[:k]:
+        if item not in seen_items:
+            seen_items.add(item)
+            actual_gains.append(rel_map.get(item, 0.0))
+        else:
+            actual_gains.append(0.0)
+
     actual_dcg = dcg_at_k(actual_gains, k)
 
     # Ideal gains sorted in descending order
