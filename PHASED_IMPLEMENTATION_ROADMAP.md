@@ -199,13 +199,13 @@ Build an industrial-strength document ingestion engine capable of parsing multip
 Implement a modular embedding abstraction supporting CPU-optimized local models (FastEmbed ONNX), GPU/PyTorch sentence-transformers, and cloud API embeddings (LiteLLM), backed by a production Qdrant vector store adapter with collection hashing and in-memory CI fallback.
 
 ### Detailed Engineering Tasks
-- [ ] **Embedding Provider Abstraction (`backend/app/engine/embeddings/`)**:
+- [x] **Embedding Provider Abstraction (`backend/app/engine/embeddings/`)**:
   - `BaseEmbeddingProvider`: Abstract interface with `embed_texts(list[str]) -> list[list[float]]` and `embed_query(str) -> list[float]`.
   - `FastEmbedProvider`: Local CPU-optimized ONNX runtime embeddings (default: `BAAI/bge-small-en-v1.5` [384d], `BAAI/bge-base-en-v1.5` [768d]). Fully functional offline with zero cloud cost.
   - `SentenceTransformersProvider`: PyTorch CUDA/MPS/CPU adapter supporting any HuggingFace dense embedding model.
   - `CloudEmbeddingProvider`: LiteLLM integration for OpenAI (`text-embedding-3-small`, `large`), Voyage AI, and Cohere Embed v3 with automatic retry and rate-limiting.
   - Dimensionality validation: Validate that vector output dimensions match model configuration contracts.
-- [ ] **Vector Store Adapter (`backend/app/services/vector_store.py`)**:
+- [x] **Vector Store Adapter (`backend/app/services/vector_store.py`)**:
   - `VectorStoreAdapter`: Unified interface for vector operations.
   - Qdrant integration via `qdrant-client`:
     - Strict collection naming contract:
@@ -214,10 +214,10 @@ Implement a modular embedding abstraction supporting CPU-optimized local models 
     - Payload schema: `doc_id`, `chunk_id`, `chunk_index`, `content`, `strategy`, `token_count`, `domain`.
     - Payload index: Keyword indexes on `doc_id`, `domain`, and `strategy` for fast filtered retrieval.
   - `InMemoryVectorStore`: Numpy-based cosine similarity vector store for fast, standalone offline unit testing and CI without requiring a running Qdrant daemon.
-- [ ] **Automated Tests (`backend/tests/unit/test_embeddings.py`, `test_vector_store.py`)**:
+- [x] **Automated Tests (`backend/tests/unit/test_embeddings.py`, `test_vector_store.py`)**:
   - Vector cosine ranking unit test: Assert distance calculation on synthetic orthogonal vectors is deterministic.
   - Collection creation and batch points upsertion test ($> 500$ points upserted in $< 1$s).
-- [ ] **Verification Gate B**:
+- [x] **Verification Gate B**:
   - `ruff check app tests` and `mypy app` pass with 0 errors.
   - Vector storage and retrieval tests pass on both `InMemoryVectorStore` and `QdrantClient`.
 
