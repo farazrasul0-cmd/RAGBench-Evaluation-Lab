@@ -8,6 +8,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models.entities import (
+    Document,
+    DocumentChunk,
+    Experiment,
+    ExperimentRun,
     GenerationResult,
     MetricResult,
     PackedContext,
@@ -64,8 +68,53 @@ class QueryTraceRepository:
         packed_context: dict[str, Any] | None = None,
         generation_result: dict[str, Any] | None = None,
         metric_results: list[dict[str, Any]] | None = None,
+        validate_chunk_references: bool = True,
     ) -> QueryRun:
-        """Atomically record all stages of a query's execution trace."""
+        """Atomically record all stages of a query's execution trace.
+
+        Validates that all referenced retrieved and reranked chunk IDs belong to the
+        target DatasetVersion for this ExperimentRun, preventing orphan chunk references.
+        """
+        # 0. Repository-level chunk reference integrity validation
+        if validate_chunk_references:
+            referenced_chunk_ids: set[str] = set()
+            if retrieved_chunks:
+                referenced_chunk_ids.update(rc["chunk_id"] for rc in retrieved_chunks)
+            if reranked_chunks:
+                referenced_chunk_ids.update(rk["chunk_id"] for rk in reranked_chunks)
+
+            if referenced_chunk_ids:
+                stmt_version = (
+                    select(Experiment.dataset_version_id)
+                    .join(ExperimentRun, ExperimentRun.experiment_id == Experiment.id)
+                    .where(ExperimentRun.id == experiment_run_id)
+                )
+                version_res = await self.session.execute(stmt_version)
+                dataset_version_id = version_res.scalar_one_or_none()
+
+                if not dataset_version_id:
+                    raise ValueError(
+                        f"ExperimentRun '{experiment_run_id}' not found or has no dataset version"
+                    )
+
+                stmt_chunks = (
+                    select(DocumentChunk.id)
+                    .join(Document, DocumentChunk.document_id == Document.id)
+                    .where(Document.dataset_version_id == dataset_version_id)
+                    .where(DocumentChunk.id.in_(referenced_chunk_ids))
+                )
+                valid_res = await self.session.execute(stmt_chunks)
+                valid_chunk_ids = set(valid_res.scalars().all())
+
+                missing_chunks = referenced_chunk_ids - valid_chunk_ids
+                if missing_chunks:
+                    unknown_id = sorted(missing_chunks)[0]
+                    raise ValueError(
+                        f"Invalid chunk reference in query trace: unknown chunk ID '{unknown_id}' "
+                        f"does not exist in dataset version '{dataset_version_id}'"
+                    )
+
+        # 1. Base QueryRun record
         query_run = QueryRun(
             experiment_run_id=experiment_run_id,
             query_id=query_id,
@@ -79,7 +128,7 @@ class QueryTraceRepository:
         self.session.add(query_run)
         await self.session.flush()
 
-        # 1. Transformed Queries
+        # 2. Transformed Queries
         if transformed_queries:
             for idx, tq in enumerate(transformed_queries):
                 trans = TransformedQuery(
@@ -91,7 +140,7 @@ class QueryTraceRepository:
                 )
                 self.session.add(trans)
 
-        # 2. Retrieved Chunks
+        # 3. Retrieved Chunks
         if retrieved_chunks:
             for rc in retrieved_chunks:
                 ret = RetrievedChunk(
@@ -104,7 +153,7 @@ class QueryTraceRepository:
                 )
                 self.session.add(ret)
 
-        # 3. Reranked Chunks
+        # 4. Reranked Chunks
         if reranked_chunks:
             for rk in reranked_chunks:
                 rerank = RerankedChunk(
@@ -118,7 +167,7 @@ class QueryTraceRepository:
                 )
                 self.session.add(rerank)
 
-        # 4. Packed Context
+        # 5. Packed Context
         if packed_context:
             ctx = PackedContext(
                 query_run_id=query_run.id,
@@ -131,7 +180,7 @@ class QueryTraceRepository:
             )
             self.session.add(ctx)
 
-        # 5. Generation Result
+        # 6. Generation Result
         if generation_result:
             gen = GenerationResult(
                 query_run_id=query_run.id,
@@ -147,7 +196,7 @@ class QueryTraceRepository:
             )
             self.session.add(gen)
 
-        # 6. Metric Results
+        # 7. Metric Results
         if metric_results:
             for mr in metric_results:
                 metric = MetricResult(
@@ -282,7 +331,16 @@ class QueryTraceRepository:
         self,
         experiment_run_id: str,
     ) -> list[QueryEvidenceTrail]:
-        """Fetch evidence trails for all queries executed under an experiment run."""
+        """Fetch evidence trails for all queries executed under an experiment run.
+
+        Performance & Design Note (Optimization Opportunity):
+            Currently queries query_run IDs and loads each evidence trail via
+            get_query_evidence_trail. For typical evaluation benchmark sizes, this
+            eager loading is fast and guarantees clean per-query encapsulation.
+            For very large benchmark runs, this can be optimized in a future stage
+            (e.g., Phase G) by batch-fetching all entities using joinedload with
+            grouped dictionaries.
+        """
         stmt = (
             select(QueryRun.id)
             .where(QueryRun.experiment_run_id == experiment_run_id)

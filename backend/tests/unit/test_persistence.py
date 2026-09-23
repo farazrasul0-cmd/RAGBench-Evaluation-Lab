@@ -2,9 +2,10 @@
 
 import contextlib
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import pytest
-from sqlalchemy import text
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession
 
@@ -14,14 +15,12 @@ from app.db.repositories import (
     ExperimentRepository,
     QueryTraceRepository,
 )
-from app.models.entities import Document
+from app.models.entities import Document, QueryRun
 
 
 @pytest.fixture
 async def test_engine() -> AsyncGenerator[AsyncEngine, None]:
     """Create isolated SQLite database engine with WAL & foreign keys."""
-    from pathlib import Path
-
     db_file = Path("test_persistence.db")
     engine = get_async_engine(f"sqlite+aiosqlite:///{db_file}")
     await init_db(engine)
@@ -244,13 +243,66 @@ async def test_reconstruct_complete_query_evidence_trail(session: AsyncSession) 
     exp_repo = ExperimentRepository(session)
     trace_repo = QueryTraceRepository(session)
 
-    # 1. Setup Dataset, Version, Experiment, and Run
+    # 1. Setup Dataset, Version, Documents, and Chunks
     dataset = await ds_repo.create_dataset(name="Evidence Test Corpus")
     version = await ds_repo.create_version(
         dataset_id=dataset.id,
         version_number=1,
         content_hash="evidence_v1_hash",
     )
+    docs = await ds_repo.add_documents(
+        version_id=version.id,
+        documents_data=[
+            {
+                "filename": "benefits.md",
+                "content": "Full passage on hybrid vs dense retrieval benefits.",
+                "content_hash": "hash_benefits_doc",
+            }
+        ],
+    )
+    # Add chunks so chunk reference integrity succeeds
+    await ds_repo.add_chunks(
+        document_id=docs[0].id,
+        chunks_data=[
+            {
+                "id": "chunk_benefits_01",
+                "chunk_index": 0,
+                "content": "Dense captures semantic context.",
+                "content_hash": "h_c1",
+                "token_count": 5,
+                "strategy": "fixed",
+                "chunking_config_hash": "cfg_h",
+            },
+            {
+                "id": "chunk_benefits_02",
+                "chunk_index": 1,
+                "content": "Lexical match handles exact terms.",
+                "content_hash": "h_c2",
+                "token_count": 5,
+                "strategy": "fixed",
+                "chunking_config_hash": "cfg_h",
+            },
+            {
+                "id": "chunk_other_99",
+                "chunk_index": 2,
+                "content": "Other passage.",
+                "content_hash": "h_c3",
+                "token_count": 2,
+                "strategy": "fixed",
+                "chunking_config_hash": "cfg_h",
+            },
+            {
+                "id": "chunk_unrelated_55",
+                "chunk_index": 3,
+                "content": "Unrelated passage.",
+                "content_hash": "h_c4",
+                "token_count": 2,
+                "strategy": "fixed",
+                "chunking_config_hash": "cfg_h",
+            },
+        ],
+    )
+
     experiment = await exp_repo.create_experiment(
         name="Lineage Evidence Verification",
         dataset_version_id=version.id,
@@ -443,3 +495,198 @@ async def test_reconstruct_complete_query_evidence_trail(session: AsyncSession) 
     run_trails = await trace_repo.get_run_evidence_trails(run.id)
     assert len(run_trails) == 1
     assert run_trails[0].query_run_id == recorded_query.id
+
+
+@pytest.mark.anyio
+async def test_historical_dataset_protection_and_immutability(session: AsyncSession) -> None:
+    """Test A: Verify that a DatasetVersion referenced by experiments cannot be deleted.
+
+    Guarantees that historical scientific evidence cannot disappear merely because an
+    upstream organizational entity or snapshot is targeted for deletion.
+    """
+    ds_repo = DatasetRepository(session)
+    exp_repo = ExperimentRepository(session)
+
+    # 1. Create dataset, version, and experiment referencing the version
+    dataset = await ds_repo.create_dataset(name="Historical Corpus")
+    version = await ds_repo.create_version(
+        dataset_id=dataset.id,
+        version_number=1,
+        content_hash="hist_v1_hash",
+    )
+    experiment = await exp_repo.create_experiment(
+        name="Study on Historical Corpus",
+        dataset_version_id=version.id,
+        configuration={"model": "test"},
+        configuration_hash="hist_exp_hash",
+    )
+    run = await exp_repo.create_run(
+        experiment_id=experiment.id,
+        pipeline_config_hash="p_hash",
+        cache_key="ckey",
+        cache_hash="chash",
+    )
+    exp_id = experiment.id
+    run_id = run.id
+    version_id = version.id
+
+    # Commit baseline state so rollback only affects the failed delete attempt
+    await session.commit()
+
+    # 2. Attempt to delete the DatasetVersion -> MUST be rejected by RESTRICT constraint
+    await session.delete(version)
+    with pytest.raises(IntegrityError):
+        await session.flush()
+
+    # 3. Rollback the rejected deletion attempt
+    await session.rollback()
+
+    # 4. Verify that the experiment, run, and dataset version remain fully intact
+    persisted_exp = await exp_repo.get_experiment(exp_id)
+    assert persisted_exp is not None
+    assert persisted_exp.dataset_version_id == version_id
+
+    persisted_run = await exp_repo.get_run(run_id)
+    assert persisted_run is not None
+
+
+@pytest.mark.anyio
+async def test_invalid_chunk_reference_integrity_and_atomic_rollback(
+    session: AsyncSession,
+) -> None:
+    """Test B: Verify repository-level integrity validation of chunk references.
+
+    Guarantees:
+    - Valid chunk IDs belonging to the DatasetVersion succeed.
+    - Unknown retrieved chunk IDs are rejected.
+    - Unknown reranked chunk IDs are rejected.
+    - Rejection leaves NO partial QueryRun or orphan child records.
+    """
+    ds_repo = DatasetRepository(session)
+    exp_repo = ExperimentRepository(session)
+    trace_repo = QueryTraceRepository(session)
+
+    # 1. Setup Dataset, Version, Document, and valid Chunk C1
+    dataset = await ds_repo.create_dataset(name="Chunk Integrity Corpus")
+    version = await ds_repo.create_version(
+        dataset_id=dataset.id,
+        version_number=1,
+        content_hash="chk_v1_hash",
+    )
+    docs = await ds_repo.add_documents(
+        version_id=version.id,
+        documents_data=[
+            {
+                "filename": "doc1.txt",
+                "content": "Valid chunk content for C1.",
+                "content_hash": "doc1_chk_hash",
+            }
+        ],
+    )
+    await ds_repo.add_chunks(
+        document_id=docs[0].id,
+        chunks_data=[
+            {
+                "id": "C1",
+                "chunk_index": 0,
+                "content": "Valid chunk content for C1.",
+                "content_hash": "c1_hash",
+                "token_count": 6,
+                "strategy": "fixed",
+                "chunking_config_hash": "cfg_h",
+            }
+        ],
+    )
+
+    experiment = await exp_repo.create_experiment(
+        name="Chunk Ref Test Experiment",
+        dataset_version_id=version.id,
+        configuration={"test": True},
+        configuration_hash="cfg_h_chk",
+    )
+    run = await exp_repo.create_run(
+        experiment_id=experiment.id,
+        pipeline_config_hash="pipe_h_chk",
+        cache_key="ckey_chk",
+        cache_hash="chash_chk",
+    )
+
+    # 2. Case A: Known chunk C1 -> MUST succeed
+    valid_query = await trace_repo.record_query_trace(
+        experiment_run_id=run.id,
+        query_id="q_valid_c1",
+        original_query="Valid query referencing C1",
+        retrieved_chunks=[
+            {
+                "retriever_type": "dense",
+                "chunk_id": "C1",
+                "rank": 1,
+                "score": 0.95,
+            }
+        ],
+        reranked_chunks=[
+            {
+                "chunk_id": "C1",
+                "original_rank": 1,
+                "reranked_rank": 1,
+                "original_score": 0.95,
+                "reranker_score": 0.99,
+            }
+        ],
+    )
+    assert valid_query.id is not None
+
+    # 3. Case B: Unknown retrieved chunk ID C999 -> MUST be rejected
+    with pytest.raises(
+        ValueError, match="unknown chunk ID 'C999' does not exist in dataset version"
+    ):
+        await trace_repo.record_query_trace(
+            experiment_run_id=run.id,
+            query_id="q_invalid_retrieved",
+            original_query="Query referencing non-existent retrieved chunk",
+            retrieved_chunks=[
+                {
+                    "retriever_type": "dense",
+                    "chunk_id": "C999",
+                    "rank": 1,
+                    "score": 0.50,
+                }
+            ],
+        )
+
+    # Assert that no partial QueryRun was created for q_invalid_retrieved
+    check_stmt_1 = select(QueryRun).where(QueryRun.query_id == "q_invalid_retrieved")
+    res_1 = await session.execute(check_stmt_1)
+    assert res_1.scalar_one_or_none() is None
+
+    # 4. Case C: Unknown reranked chunk ID C999 -> MUST be rejected
+    with pytest.raises(
+        ValueError, match="unknown chunk ID 'C999' does not exist in dataset version"
+    ):
+        await trace_repo.record_query_trace(
+            experiment_run_id=run.id,
+            query_id="q_invalid_reranked",
+            original_query="Query referencing non-existent reranked chunk",
+            retrieved_chunks=[
+                {
+                    "retriever_type": "dense",
+                    "chunk_id": "C1",
+                    "rank": 1,
+                    "score": 0.90,
+                }
+            ],
+            reranked_chunks=[
+                {
+                    "chunk_id": "C999",
+                    "original_rank": 1,
+                    "reranked_rank": 1,
+                    "original_score": 0.90,
+                    "reranker_score": 0.92,
+                }
+            ],
+        )
+
+    # Assert that no partial QueryRun was created for q_invalid_reranked
+    check_stmt_2 = select(QueryRun).where(QueryRun.query_id == "q_invalid_reranked")
+    res_2 = await session.execute(check_stmt_2)
+    assert res_2.scalar_one_or_none() is None

@@ -90,7 +90,7 @@ class Document(Base):
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
     dataset_version_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("dataset_versions.id", ondelete="CASCADE"),
+        ForeignKey("dataset_versions.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
@@ -169,7 +169,7 @@ class Experiment(Base):
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     dataset_version_id: Mapped[str] = mapped_column(
         String(36),
-        ForeignKey("dataset_versions.id", ondelete="CASCADE"),
+        ForeignKey("dataset_versions.id", ondelete="RESTRICT"),
         nullable=False,
         index=True,
     )
