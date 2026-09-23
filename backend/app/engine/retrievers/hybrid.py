@@ -37,8 +37,8 @@ def reciprocal_rank_fusion(
             rrf_scores[cid] = rrf_scores.get(cid, 0.0) + score_increment
 
     fused_results = [(chunk_map[cid], score) for cid, score in rrf_scores.items()]
-    # Sort descending by RRF score, tie-break by chunk_id
-    fused_results.sort(key=lambda x: (x[1], x[0].chunk_id), reverse=True)
+    # Deterministic sort: descending by score, tie-break by ascending chunk_id
+    fused_results.sort(key=lambda x: (-x[1], x[0].chunk_id))
     return fused_results[:top_k]
 
 
@@ -57,6 +57,9 @@ def relative_score_normalization(
     if not 0.0 <= alpha <= 1.0:
         raise HybridRetrieverError("Alpha weighting must be between 0.0 and 1.0 inclusive.")
 
+    if not dense_results and not bm25_results:
+        return []
+
     def normalize(
         results: list[tuple[DocumentChunk, float]],
     ) -> dict[str, float]:
@@ -67,8 +70,9 @@ def relative_score_normalization(
         max_s = max(scores)
         span = max_s - min_s
         if span <= epsilon:
-            # If all scores are equal, treat them uniformly as 1.0
-            return {chunk.chunk_id: 1.0 for chunk, _ in results}
+            # If all scores are equal, treat positive scores as 1.0, non-positive as 0.0
+            val = 1.0 if max_s > 0.0 else 0.0
+            return {chunk.chunk_id: val for chunk, _ in results}
         return {chunk.chunk_id: (score - min_s) / (span + epsilon) for chunk, score in results}
 
     dense_norm = normalize(dense_results)
@@ -87,7 +91,8 @@ def relative_score_normalization(
         final_score = alpha * s_dense + (1.0 - alpha) * s_bm25
         combined_scores.append((chunk, final_score))
 
-    combined_scores.sort(key=lambda x: (x[1], x[0].chunk_id), reverse=True)
+    # Deterministic sort: descending by score, tie-break by ascending chunk_id
+    combined_scores.sort(key=lambda x: (-x[1], x[0].chunk_id))
     return combined_scores[:top_k]
 
 
@@ -129,6 +134,7 @@ class HybridRetriever(BaseRetriever):
         bm25_candidates = self.bm25_retriever.retrieve(
             query=query,
             top_k=num_candidates,
+            filter_metadata=filter_metadata,
             **kwargs,
         )
 

@@ -31,7 +31,10 @@ class FlashRankReranker(BaseReranker):
         }
         if cache_dir:
             kwargs["cache_dir"] = cache_dir
-        self._ranker = Ranker(**kwargs)
+        try:
+            self._ranker = Ranker(**kwargs)
+        except Exception as e:
+            raise FlashRankRerankerError(f"Failed to initialize FlashRank ranker: {e}") from e
 
     def rerank(
         self,
@@ -57,5 +60,6 @@ class FlashRankReranker(BaseReranker):
             if cid in chunk_lookup:
                 scored.append((chunk_lookup[cid], score))
 
-        scored.sort(key=lambda x: (x[1], x[0].chunk_id), reverse=True)
+        # Deterministic sort: descending by score, tie-break by ascending chunk_id
+        scored.sort(key=lambda x: (-x[1], x[0].chunk_id))
         return scored[:top_n]

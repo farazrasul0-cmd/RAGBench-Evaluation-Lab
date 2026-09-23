@@ -36,5 +36,6 @@ class DeterministicMockReranker(BaseReranker):
                 score = float(overlap) / (len(query_terms) + 1.0)
             scored.append((candidate, score))
 
-        scored.sort(key=lambda x: (x[1], x[0].chunk_id), reverse=True)
+        # Deterministic sort: descending by score, tie-break by ascending chunk_id
+        scored.sort(key=lambda x: (-x[1], x[0].chunk_id))
         return scored[:top_n]

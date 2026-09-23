@@ -9,6 +9,7 @@ from app.engine.retrievers.hybrid import (
     reciprocal_rank_fusion,
     relative_score_normalization,
 )
+from app.engine.retrievers.reranked import RerankedRetriever
 
 __all__ = [
     "BaseRetriever",
@@ -17,6 +18,7 @@ __all__ = [
     "DenseRetriever",
     "HybridRetriever",
     "HybridRetrieverError",
+    "RerankedRetriever",
     "reciprocal_rank_fusion",
     "relative_score_normalization",
     "tokenize_text",

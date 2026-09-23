@@ -55,15 +55,18 @@ class BM25Retriever(BaseRetriever):
 
         self._chunks = list(chunks)
         self._corpus_tokens = [tokenize_text(c.content) for c in self._chunks]
+        if not any(self._corpus_tokens):
+            raise BM25RetrieverError("Corpus contains no valid tokens to index.")
         self._bm25 = BM25Okapi(self._corpus_tokens)
 
     def retrieve(
         self,
         query: str,
         top_k: int = 10,
+        filter_metadata: dict[str, Any] | None = None,
         **kwargs: Any,
     ) -> list[tuple[DocumentChunk, float]]:
-        """Retrieve top_k document chunks using BM25Okapi scores."""
+        """Retrieve top_k chunks using BM25Okapi scores with optional metadata filtering."""
         if not self._chunks or self._bm25 is None:
             return []
 
@@ -72,11 +75,21 @@ class BM25Retriever(BaseRetriever):
             return []
 
         raw_scores = self._bm25.get_scores(query_tokens)
-        scored_pairs: list[tuple[DocumentChunk, float]] = [
-            (chunk, float(score)) for chunk, score in zip(self._chunks, raw_scores, strict=True)
-        ]
-        # Sort descending by score, tie-break by chunk_id
-        scored_pairs.sort(key=lambda x: (x[1], x[0].chunk_id), reverse=True)
+        scored_pairs: list[tuple[DocumentChunk, float]] = []
+
+        for chunk, score in zip(self._chunks, raw_scores, strict=True):
+            if filter_metadata:
+                match = True
+                for k, v in filter_metadata.items():
+                    if chunk.metadata.get(k) != v:
+                        match = False
+                        break
+                if not match:
+                    continue
+            scored_pairs.append((chunk, float(score)))
+
+        # Deterministic sort: descending by score, tie-break by ascending chunk_id
+        scored_pairs.sort(key=lambda x: (-x[1], x[0].chunk_id))
         return scored_pairs[:top_k]
 
     def save(self, path: Path | str) -> None:
