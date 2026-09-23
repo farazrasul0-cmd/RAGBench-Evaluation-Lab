@@ -263,7 +263,7 @@ Build the comparative retrieval engine that implements Dense vector search, Lexi
 Implement advanced query pre-processing strategies (HyDE, Multi-Query, Step-Back) and context window packing logic that mitigates the "Lost-in-the-Middle" phenomenon while strictly respecting token budgets.
 
 ### Detailed Engineering Tasks
-- [ ] **Query Transformation Pipeline (`backend/app/engine/query_transforms/`)**:
+- [x] **Query Transformation Pipeline (`backend/app/engine/query_transforms/`)**:
   - `BaseQueryTransformer`: Abstract interface `transform(query: str) -> list[str]`.
   - `HyDETransformer` (Hypothetical Document Embeddings):
     - Prompt LLM: *"Generate a hypothetical technical passage that answers the question: {query}"*.
@@ -273,7 +273,7 @@ Implement advanced query pre-processing strategies (HyDE, Multi-Query, Step-Back
     - Retrieve top-$K$ for each sub-query, then merge and rank via RRF.
   - `StepBackPrompting`:
     - Extract a high-level conceptual question from the user query to retrieve background concepts alongside specific facts.
-- [ ] **Context Builder (`backend/app/engine/context/builder.py`)**:
+- [x] **Context Builder (`backend/app/engine/context/builder.py`)**:
   - Token Budget Enforcement: Enforce sliding token ceilings (e.g., 2,048 or 4,096 tokens) using `tiktoken`.
   - Re-ordering strategies:
     - Standard: Retain retriever rank order $1, 2, \dots, K$.
@@ -284,10 +284,10 @@ Implement advanced query pre-processing strategies (HyDE, Multi-Query, Step-Back
     [Source 1] (doc: paper_mamba.pdf, chunk: chunk_048)
     Content snippet...
     ```
-- [ ] **Automated Tests (`backend/tests/unit/test_query_transforms.py`, `test_context_builder.py`)**:
+- [x] **Automated Tests (`backend/tests/unit/test_query_transforms.py`, `test_context_builder.py`)**:
   - Context budget guard: Assert formatted prompt never exceeds maximum allowed token limit by even 1 token.
   - Lost-in-the-Middle assertion: Verify chunk ordering indices match expected placement.
-- [ ] **Verification Gate D**:
+- [x] **Verification Gate D**:
   - `ruff check app tests` and `mypy app` pass with 0 errors.
   - Golden query transformation schema tests pass.
 
