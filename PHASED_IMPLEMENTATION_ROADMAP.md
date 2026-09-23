@@ -6,15 +6,15 @@
 ---
 
 ## Phase 0: Foundations, Toolchain & Directory Scaffold
-- [ ] Initialize repository structure:
+- [x] Initialize repository structure:
   - `backend/app/{api, core, engine, models, schemas, services, db}`
   - `backend/tests/{unit, integration, fixtures}`
   - `frontend/{src/{components, views, hooks, api, types}}`
   - `datasets/{software_eng, academic_research, general, multilingual}`
-- [ ] Configure Python environment: Python 3.12+, Poetry/pip requirements (`fastapi`, `pydantic-settings`, `qdrant-client`, `rank-bm25`, `fastembed`, `sentence-transformers`, `litellm`, `celery`, `redis`, `pytest`).
-- [ ] Establish pre-commit linting & static analysis: `ruff` (linting & formatting), `mypy --strict` (0 type errors allowed).
-- [ ] Set up frontend toolchain: Node 22+, Vite 6+, React 19, TypeScript, Tailwind CSS, Lucide icons, Vitest.
-- [ ] **Verification Gate 0**:
+- [x] Configure Python environment: Python 3.12+, Poetry/pip requirements (`fastapi`, `pydantic-settings`, `qdrant-client`, `rank-bm25`, `fastembed`, `sentence-transformers`, `litellm`, `celery`, `redis`, `pytest`).
+- [x] Establish pre-commit linting & static analysis: `ruff` (linting & formatting), `mypy --strict` (0 type errors allowed).
+- [x] Set up frontend toolchain: Node 22+, Vite 6+, React 19, TypeScript, Tailwind CSS, Lucide icons, Vitest.
+- [x] **Verification Gate 0**:
   - `ruff check .` passes with 0 errors.
   - `mypy` passes across 100% of scaffolded files.
   - `npm run typecheck` and `npm run build` pass cleanly.
