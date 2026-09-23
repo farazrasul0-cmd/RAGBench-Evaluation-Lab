@@ -299,28 +299,28 @@ Implement advanced query pre-processing strategies (HyDE, Multi-Query, Step-Back
 Implement the core mathematical evaluation engine calculating both Information Retrieval (IR) metrics and Generation/Factuality/Citation metrics in strict conformance with Section 2 of `SYSTEM_ARCHITECTURE.md`.
 
 ### Detailed Engineering Tasks
-- [ ] **IR Metric Evaluator (`backend/app/engine/metrics/ir.py`)**:
+- [x] **IR Metric Evaluator (`backend/app/engine/metrics/ir.py`)**:
   - Given query ground-truth passages $R_q$ and retrieved list $\hat{R}_{q, K}$:
     - **Recall@K**: $\frac{|\hat{R}_{q, K} \cap R_q|}{|R_q|}$
     - **Precision@K**: $\frac{|\hat{R}_{q, K} \cap R_q|}{K}$
     - **MRR@K** (Mean Reciprocal Rank): $\frac{1}{\text{rank}}$ of first hit $\le K$.
     - **NDCG@K** (Normalized Discounted Cumulative Gain): with binary and graded relevance $r_i \in \{0, 1\}$.
     - **Hit@K**: $1$ if $|\hat{R}_{q, K} \cap R_q| \ge 1$ else $0$.
-- [ ] **Generation & Faithfulness Evaluator (`backend/app/engine/metrics/generation.py`)**:
+- [x] **Generation & Faithfulness Evaluator (`backend/app/engine/metrics/generation.py`)**:
   - **Proposition Decomposer**: Splits generated answer $A$ into atomic statements $S_A = \{s_1, \dots, s_m\}$ (each expressing a single factual claim).
   - **Entailment Classifier**: Evaluates whether context $C \vdash s_i$ using local NLI model (`cross-encoder/nli-deberta-v3-small`) or zero-shot LLM-as-a-Judge.
   - **Faithfulness Score**: $\frac{|\{s \in S_A \mid C \vdash s\}|}{|S_A|}$.
   - **Hallucination Rate**: $1.0 - \text{Faithfulness}$.
   - **Answer Relevance**: LLM generates synthetic queries from answer $A$; computes mean cosine similarity $\frac{1}{N} \sum \cos(\mathbf{e}(A), \mathbf{e}(q_{\text{gen}}^{(i)}))$.
-- [ ] **Citation Precision & Recall Evaluator (`backend/app/engine/metrics/citation.py`)**:
+- [x] **Citation Precision & Recall Evaluator (`backend/app/engine/metrics/citation.py`)**:
   - Regex extraction of `[Source N]` or `[N]` citations from generated text.
   - Verify if sentence preceding `[Source N]` is entailed by chunk $N$.
   - Citation Precision = $\frac{\text{Entailing citations}}{\text{Total citations made}}$.
   - Citation Recall = $\frac{\text{Required ground truth facts cited}}{\text{Total factual claims in generated answer}}$.
-- [ ] **Automated Tests (`backend/tests/unit/test_metrics.py`)**:
+- [x] **Automated Tests (`backend/tests/unit/test_metrics.py`)**:
   - Synthetic claim-evidence test: 10 pre-labeled claim-evidence pairs asserting exact faithfulness calculation (0% on complete hallucination, 100% on perfect entailment).
   - Mathematical verification of NDCG@K against manual pen-and-paper calculation fixtures.
-- [ ] **Verification Gate E**:
+- [x] **Verification Gate E**:
   - `ruff check app tests` and `mypy app` pass with 0 errors.
   - All metric functions pass validation with zero floating-point division by zero exceptions on edge cases (empty results, 0 citations).
 
