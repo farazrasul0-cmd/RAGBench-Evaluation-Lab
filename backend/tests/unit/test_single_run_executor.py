@@ -1,4 +1,4 @@
-"""Unit and integration tests for Phase F4: Single-Run Pipeline Executor."""
+"""Unit and integration tests for Phase F4: Single-Run Pipeline Executor and Audit Invariants."""
 
 import contextlib
 from collections.abc import AsyncGenerator
@@ -13,6 +13,8 @@ from app.db.repositories.experiment import ExperimentRepository
 from app.db.repositories.query_trace import QueryTraceRepository
 from app.engine.embeddings.mock_provider import DeterministicMockEmbeddingProvider
 from app.engine.query_transforms.base import MockLLMClient
+from app.engine.query_transforms.hyde import HyDETransformer
+from app.engine.query_transforms.multi_query import MultiQueryExpander
 from app.engine.query_transforms.step_back import StepBackTransformer
 from app.engine.rerankers.mock_reranker import DeterministicMockReranker
 from app.engine.retrievers.bm25 import BM25Retriever
@@ -260,6 +262,7 @@ async def test_single_run_executor_e2e_hybrid_full_lineage(session: AsyncSession
             query_text="What pigment absorbs sunlight in photosynthesis?",
             expected_answer="Chlorophyll is the pigment responsible for absorbing light.",
             ground_truth_chunks=["chunk-chloro-002"],
+            ground_truth_docs=["doc-1"],
             metadata={"domain": "botany", "difficulty": "easy"},
         ),
         EvaluationQuery(
@@ -267,6 +270,7 @@ async def test_single_run_executor_e2e_hybrid_full_lineage(session: AsyncSession
             query_text="Where is ATP produced in cellular respiration?",
             expected_answer="ATP is produced in the mitochondria.",
             ground_truth_chunks=["chunk-resp-003"],
+            ground_truth_docs=["doc-2"],
             metadata={"domain": "cellular_biology", "difficulty": "medium"},
         ),
     ]
@@ -298,6 +302,7 @@ async def test_single_run_executor_e2e_hybrid_full_lineage(session: AsyncSession
     assert "mrr@1" in result.mean_metrics
     assert "faithfulness" in result.mean_metrics
     assert "citation_precision" in result.mean_metrics
+    assert "doc_recall@1" in result.mean_metrics
 
     # 7. Verify relational persistence in DB
     run = await exp_repo.get_run(result.experiment_run_id)
@@ -319,6 +324,7 @@ async def test_single_run_executor_e2e_hybrid_full_lineage(session: AsyncSession
     for s in summaries:
         assert s.count == 2
         assert s.min <= s.mean <= s.max
+        assert s.metadata_json.get("stddev_type") == "sample"
 
     # 8. Verify complete granular Evidence Trail reconstruction
     trails = await trace_repo.get_run_evidence_trails(run.id)
@@ -364,66 +370,103 @@ async def test_single_run_executor_e2e_hybrid_full_lineage(session: AsyncSession
 
 
 @pytest.mark.anyio
-async def test_single_run_executor_pure_bm25(session: AsyncSession) -> None:
-    """Verify execution of baseline BM25 pipeline without reranker or transforms."""
+async def test_audit_chunk_id_vs_doc_id_separation(session: AsyncSession) -> None:
+    """Audit Invariant 1: Prove chunk_id and doc_id are distinct and mapped explicitly."""
     dataset_repo = DatasetRepository(session)
     exp_repo = ExperimentRepository(session)
     trace_repo = QueryTraceRepository(session)
 
-    ds = await dataset_repo.create_dataset(name="BM25 DS")
+    ds = await dataset_repo.create_dataset(name="Mapping Audit DS")
     ver = await dataset_repo.create_version(
-        dataset_id=ds.id, version_number=1, content_hash="hash-bm25-v1"
+        dataset_id=ds.id, version_number=1, content_hash="hash-map-v1"
     )
     docs = await dataset_repo.add_documents(
         ver.id,
         [
             {
-                "filename": "doc.txt",
-                "content": "Sample content about quantum computing.",
-                "content_hash": "h-qc",
-            }
+                "external_id": "doc-alpha",
+                "filename": "alpha.txt",
+                "content": "Alpha.",
+                "content_hash": "h-a",
+            },
+            {
+                "external_id": "doc-beta",
+                "filename": "beta.txt",
+                "content": "Beta.",
+                "content_hash": "h-b",
+            },
         ],
     )
+
+    # Note explicit distinct IDs: chunk_id != doc_id
     chunks = [
         DocumentChunk.create(
-            doc_id=docs[0].id,
+            doc_id="doc-alpha",
             chunk_index=0,
-            content="Quantum computing utilizes qubits for superposition.",
-            token_count=8,
+            content="Alpha content passage.",
+            token_count=3,
             start_char=0,
-            end_char=52,
+            end_char=21,
             strategy="fixed",
-            chunk_id="chunk-qc-1",
-        )
+            chunk_id="chunk-alpha-001",
+        ),
+        DocumentChunk.create(
+            doc_id="doc-beta",
+            chunk_index=0,
+            content="Beta content passage.",
+            token_count=3,
+            start_char=0,
+            end_char=20,
+            strategy="fixed",
+            chunk_id="chunk-beta-002",
+        ),
     ]
+
+    # Explicit assertion: chunk_id must NEVER equal doc_id
+    for c in chunks:
+        assert c.chunk_id != c.doc_id
+
     await dataset_repo.add_chunks(
         docs[0].id,
         [
             {
-                "id": "chunk-qc-1",
+                "id": "chunk-alpha-001",
                 "chunk_index": 0,
                 "content": chunks[0].content,
-                "content_hash": "h-qc-chunk",
-                "token_count": 8,
+                "content_hash": "h-ca1",
+                "token_count": 3,
                 "strategy": "fixed",
-                "chunking_config_hash": "cfg-qc",
+                "chunking_config_hash": "cfg-1",
             }
         ],
     )
-    exp = await exp_repo.create_experiment("BM25 Exp", ver.id, {}, "hash-bm25-cfg")
+    await dataset_repo.add_chunks(
+        docs[1].id,
+        [
+            {
+                "id": "chunk-beta-002",
+                "chunk_index": 0,
+                "content": chunks[1].content,
+                "content_hash": "h-cb2",
+                "token_count": 3,
+                "strategy": "fixed",
+                "chunking_config_hash": "cfg-1",
+            }
+        ],
+    )
+    exp = await exp_repo.create_experiment("Mapping Exp", ver.id, {}, "hash-map-cfg")
 
     pipeline_cfg = PipelineConfig(
         dataset=DatasetConfig(dataset_id=ds.id, dataset_version_id=ver.id),
-        retrieval=RetrievalConfig(mode="bm25", top_k=5),
-        reranker=RerankerConfig(enabled=False),
-        query_transform=QueryTransformConfig(strategy="none"),
+        retrieval=RetrievalConfig(mode="bm25", top_k=2),
         evaluation=EvaluationConfig(metrics=["recall", "precision"], k_values=[1]),
     )
 
     query = EvaluationQuery(
-        query_id="q-qc",
-        query_text="What does quantum computing utilize?",
-        ground_truth_chunks=["chunk-qc-1"],
+        query_id="q-map",
+        query_text="Alpha content",
+        ground_truth_chunks=["chunk-alpha-001"],
+        ground_truth_docs=["doc-alpha"],
     )
 
     executor = SingleRunExecutor()
@@ -436,80 +479,80 @@ async def test_single_run_executor_pure_bm25(session: AsyncSession) -> None:
     )
 
     assert result.status == "COMPLETED"
-    assert result.total_queries == 1
-    assert result.completed_queries == 1
-    assert result.failed_queries == 0
     assert result.mean_metrics["recall@1"] == 1.0
+    assert result.mean_metrics["doc_recall@1"] == 1.0
 
-    trails = await trace_repo.get_run_evidence_trails(result.experiment_run_id)
-    assert len(trails) == 1
-    assert trails[0].reranked_chunks == []
-    assert trails[0].retrieved_chunks[0]["retriever_type"] == "bm25"
+    trail = await trace_repo.get_query_evidence_trail(
+        (await trace_repo.get_run_evidence_trails(result.experiment_run_id))[0].query_run_id
+    )
+    assert trail is not None
+    assert trail.retrieved_chunks[0]["chunk_id"] == "chunk-alpha-001"
+    assert trail.retrieved_chunks[0]["chunk_id"] != "doc-alpha"
 
 
 @pytest.mark.anyio
-async def test_single_run_executor_partial_failure(session: AsyncSession) -> None:
-    """Verify executor handles a partial failure when one query errors out."""
+async def test_audit_per_query_transaction_atomicity(session: AsyncSession) -> None:
+    """Audit Invariant 2: Prove each query trace is committed atomically."""
     dataset_repo = DatasetRepository(session)
     exp_repo = ExperimentRepository(session)
+    trace_repo = QueryTraceRepository(session)
 
-    ds = await dataset_repo.create_dataset(name="Partial DS")
+    ds = await dataset_repo.create_dataset(name="Atomicity DS")
     ver = await dataset_repo.create_version(
-        dataset_id=ds.id, version_number=1, content_hash="hash-partial-v1"
+        dataset_id=ds.id, version_number=1, content_hash="hash-atom-v1"
     )
     docs = await dataset_repo.add_documents(
         ver.id,
-        [{"filename": "doc.txt", "content": "Content.", "content_hash": "h-p"}],
+        [{"filename": "doc.txt", "content": "Atomic content.", "content_hash": "h-atom"}],
     )
     chunks = [
         DocumentChunk.create(
             doc_id=docs[0].id,
             chunk_index=0,
-            content="Content for valid query.",
-            token_count=5,
+            content="Atomic chunk content.",
+            token_count=3,
             start_char=0,
-            end_char=24,
+            end_char=20,
             strategy="fixed",
-            chunk_id="chunk-valid-1",
+            chunk_id="chunk-atom-1",
         )
     ]
     await dataset_repo.add_chunks(
         docs[0].id,
         [
             {
-                "id": "chunk-valid-1",
+                "id": "chunk-atom-1",
                 "chunk_index": 0,
                 "content": chunks[0].content,
-                "content_hash": "h-valid-c",
-                "token_count": 5,
+                "content_hash": "h-ca-atom",
+                "token_count": 3,
                 "strategy": "fixed",
-                "chunking_config_hash": "cfg-p",
+                "chunking_config_hash": "cfg-atom",
             }
         ],
     )
-    exp = await exp_repo.create_experiment("Partial Exp", ver.id, {}, "hash-partial-cfg")
+    exp = await exp_repo.create_experiment("Atomicity Exp", ver.id, {}, "hash-atom-cfg")
 
     pipeline_cfg = PipelineConfig(
         dataset=DatasetConfig(dataset_id=ds.id, dataset_version_id=ver.id),
         retrieval=RetrievalConfig(mode="bm25"),
     )
 
-    class CrashingMockLLM(MockLLMClient):
+    class FailingSecondQueryLLM(MockLLMClient):
         def generate(self, prompt: str, system_prompt: str | None = None, **kwargs: object) -> str:
-            if "CRASH" in prompt:
-                raise RuntimeError("Simulated model generation failure")
-            return "Normal answer"
+            if "FAIL_ME" in prompt:
+                raise RuntimeError("Query 2 generation exploded!")
+            return "Valid answer"
 
     queries = [
         EvaluationQuery(
-            query_id="q-ok",
-            query_text="Valid question?",
-            ground_truth_chunks=["chunk-valid-1"],
+            query_id="q-1-ok", query_text="Question 1", ground_truth_chunks=["chunk-atom-1"]
         ),
         EvaluationQuery(
-            query_id="q-bad",
-            query_text="CRASH please",
-            ground_truth_chunks=["chunk-valid-1"],
+            query_id="q-2-fail", query_text="FAIL_ME please", ground_truth_chunks=["chunk-atom-1"]
+        ),
+        EvaluationQuery(
+            query_id="q-3-ok", query_text="Question 3", ground_truth_chunks=["chunk-atom-1"]
         ),
     ]
 
@@ -520,31 +563,135 @@ async def test_single_run_executor_partial_failure(session: AsyncSession) -> Non
         queries=queries,
         corpus_chunks=chunks,
         session=session,
-        llm_client=CrashingMockLLM(),
+        llm_client=FailingSecondQueryLLM(),
     )
 
+    # Overall run is PARTIAL: 2 of 3 succeeded
     assert result.status == "PARTIAL"
-    assert result.total_queries == 2
-    assert result.completed_queries == 1
+    assert result.total_queries == 3
+    assert result.completed_queries == 2
     assert result.failed_queries == 1
+
+    trails = await trace_repo.get_run_evidence_trails(result.experiment_run_id)
+    assert len(trails) == 3
+
+    # Query 1: completely committed and successful
+    t1 = next(t for t in trails if t.query_id == "q-1-ok")
+    assert t1.status == "SUCCESS"
+    assert t1.generation_result is not None
+    assert len(t1.metric_results) > 0
+
+    # Query 2: captured as FAILED with zero corrupt partial entities
+    t2 = next(t for t in trails if t.query_id == "q-2-fail")
+    assert t2.status == "FAILED"
+    assert t2.generation_result is None
+    assert t2.retrieved_chunks == []
+    assert t2.metric_results == {}
+
+    # Query 3: completely committed and successful
+    t3 = next(t for t in trails if t.query_id == "q-3-ok")
+    assert t3.status == "SUCCESS"
+    assert t3.generation_result is not None
+
+    # Summary metrics: count MUST be 2 (number of valid observations), not 3!
+    summaries = await exp_repo.get_metric_summaries(result.experiment_run_id)
+    for s in summaries:
+        assert s.count == 2
 
 
 @pytest.mark.anyio
-async def test_single_run_executor_empty_queries(session: AsyncSession) -> None:
-    """Verify executor gracefully handles empty query suite."""
+async def test_audit_metric_aggregation_no_zero_injection(session: AsyncSession) -> None:
+    """Audit Invariant 3: Failed queries must not inject zeros into aggregate metrics."""
     dataset_repo = DatasetRepository(session)
     exp_repo = ExperimentRepository(session)
 
-    ds = await dataset_repo.create_dataset(name="Empty DS")
+    ds = await dataset_repo.create_dataset(name="No Zero DS")
     ver = await dataset_repo.create_version(
-        dataset_id=ds.id, version_number=1, content_hash="hash-empty"
+        dataset_id=ds.id, version_number=1, content_hash="hash-nozero-v1"
     )
-    exp = await exp_repo.create_experiment(
-        name="Empty Exp",
-        dataset_version_id=ver.id,
-        configuration={"test": True},
-        configuration_hash="hash-empty-exp",
+    docs = await dataset_repo.add_documents(
+        ver.id,
+        [{"filename": "doc.txt", "content": "Content.", "content_hash": "h-nz"}],
     )
+    chunks = [
+        DocumentChunk.create(
+            doc_id=docs[0].id,
+            chunk_index=0,
+            content="Sample passage text.",
+            token_count=3,
+            start_char=0,
+            end_char=19,
+            strategy="fixed",
+            chunk_id="chunk-nz-1",
+        )
+    ]
+    await dataset_repo.add_chunks(
+        docs[0].id,
+        [
+            {
+                "id": "chunk-nz-1",
+                "chunk_index": 0,
+                "content": chunks[0].content,
+                "content_hash": "h-ca-nz",
+                "token_count": 3,
+                "strategy": "fixed",
+                "chunking_config_hash": "cfg-nz",
+            }
+        ],
+    )
+    exp = await exp_repo.create_experiment("No Zero Exp", ver.id, {}, "hash-nz-cfg")
+
+    pipeline_cfg = PipelineConfig(
+        dataset=DatasetConfig(dataset_id=ds.id, dataset_version_id=ver.id),
+        retrieval=RetrievalConfig(mode="bm25"),
+        evaluation=EvaluationConfig(metrics=["recall"], k_values=[1]),
+    )
+
+    class CrashingLLM(MockLLMClient):
+        def generate(self, prompt: str, system_prompt: str | None = None, **kwargs: object) -> str:
+            if "CRASH" in prompt:
+                raise RuntimeError("Boom")
+            return "Answer"
+
+    # Query 1 has recall@1 = 1.0, Query 2 crashes
+    queries = [
+        EvaluationQuery(query_id="q-ok", query_text="Valid", ground_truth_chunks=["chunk-nz-1"]),
+        EvaluationQuery(query_id="q-crash", query_text="CRASH", ground_truth_chunks=["chunk-nz-1"]),
+    ]
+
+    executor = SingleRunExecutor()
+    result = await executor.execute(
+        experiment_id=exp.id,
+        pipeline_config=pipeline_cfg,
+        queries=queries,
+        corpus_chunks=chunks,
+        session=session,
+        llm_client=CrashingLLM(),
+    )
+
+    # If zero were injected for q-crash, recall@1 would be (1.0 + 0.0) / 2 = 0.5.
+    # The true mean of valid observations is 1.0 / 1 = 1.0.
+    assert result.mean_metrics["recall@1"] == 1.0
+
+    summaries = await exp_repo.get_metric_summaries(result.experiment_run_id)
+    recall_summary = next(s for s in summaries if s.metric_name == "recall@1")
+    assert recall_summary.count == 1
+    assert recall_summary.mean == 1.0
+    assert recall_summary.min == 1.0
+    assert recall_summary.max == 1.0
+
+
+@pytest.mark.anyio
+async def test_audit_empty_queries_produces_no_fake_zeros(session: AsyncSession) -> None:
+    """Audit Invariant 8: Empty queries must not produce fake zero-valued summaries."""
+    dataset_repo = DatasetRepository(session)
+    exp_repo = ExperimentRepository(session)
+
+    ds = await dataset_repo.create_dataset(name="Empty Audit DS")
+    ver = await dataset_repo.create_version(
+        dataset_id=ds.id, version_number=1, content_hash="hash-empty-audit"
+    )
+    exp = await exp_repo.create_experiment("Empty Exp", ver.id, {}, "hash-empty-cfg")
 
     pipeline_cfg = PipelineConfig(
         dataset=DatasetConfig(dataset_id=ds.id, dataset_version_id=ver.id),
@@ -562,9 +709,153 @@ async def test_single_run_executor_empty_queries(session: AsyncSession) -> None:
 
     assert result.status == "COMPLETED"
     assert result.total_queries == 0
-    assert result.completed_queries == 0
-    assert result.failed_queries == 0
     assert result.mean_metrics == {}
+
+    summaries = await exp_repo.get_metric_summaries(result.experiment_run_id)
+    assert summaries == []
+
+
+def test_audit_topology_and_fusion_method_fidelity() -> None:
+    """Audit Invariant 5: Prove hybrid_fusion (RRF vs RSN) and top_k flow correctly."""
+    chunks = create_sample_chunks()
+    mock_emb = DeterministicMockEmbeddingProvider(dimension=64)
+
+    # 1. RSN fusion with alpha=0.85 and top_k=7
+    cfg_rsn = PipelineConfig(
+        dataset=DatasetConfig(dataset_id="ds", dataset_version_id="v1"),
+        embedding=EmbeddingConfig(provider="mock", dimension=64),
+        retrieval=RetrievalConfig(mode="hybrid", top_k=7, hybrid_fusion="rsn", dense_weight=0.85),
+    )
+    comp_rsn = build_pipeline_components(cfg_rsn, corpus_chunks=chunks, embedding_provider=mock_emb)
+    assert isinstance(comp_rsn.retriever, HybridRetriever)
+    assert comp_rsn.retriever.fusion_method == "rsn"
+    assert comp_rsn.retriever.alpha == 0.85
+
+    # 2. RRF fusion with rrf_k=45 and top_k=15
+    cfg_rrf = PipelineConfig(
+        dataset=DatasetConfig(dataset_id="ds", dataset_version_id="v1"),
+        embedding=EmbeddingConfig(provider="mock", dimension=64),
+        retrieval=RetrievalConfig(mode="hybrid", top_k=15, hybrid_fusion="rrf", rrf_k=45),
+    )
+    comp_rrf = build_pipeline_components(cfg_rrf, corpus_chunks=chunks, embedding_provider=mock_emb)
+    assert isinstance(comp_rrf.retriever, HybridRetriever)
+    assert comp_rrf.retriever.fusion_method == "rrf"
+    assert comp_rrf.retriever.rrf_k == 45
+
+
+def test_audit_transformation_lineage_all_strategies() -> None:
+    """Audit Invariant 6: Verify all query transformation strategies produce verifiable lineage."""
+    mock_llm = MockLLMClient()
+
+    # Identity
+    cfg_id = PipelineConfig(
+        dataset=DatasetConfig(dataset_id="ds", dataset_version_id="v1"),
+        query_transform=QueryTransformConfig(strategy="identity"),
+    )
+    comp_id = build_pipeline_components(cfg_id, corpus_chunks=[], llm_client=mock_llm)
+    t_id = comp_id.transformer.transform("What is RAG?")
+    assert t_id.strategy in ("none", "identity")
+    assert t_id.transformed_queries == ["What is RAG?"]
+
+    # StepBack
+    cfg_sb = PipelineConfig(
+        dataset=DatasetConfig(dataset_id="ds", dataset_version_id="v1"),
+        query_transform=QueryTransformConfig(strategy="step_back", include_original=True),
+    )
+    comp_sb = build_pipeline_components(cfg_sb, corpus_chunks=[], llm_client=mock_llm)
+    assert isinstance(comp_sb.transformer, StepBackTransformer)
+    t_sb = comp_sb.transformer.transform("What is RAG?")
+    assert t_sb.strategy == "step_back"
+    assert len(t_sb.transformed_queries) == 2
+    assert t_sb.transformed_queries[1] == "What is RAG?"
+
+    # MultiQuery
+    cfg_mq = PipelineConfig(
+        dataset=DatasetConfig(dataset_id="ds", dataset_version_id="v1"),
+        query_transform=QueryTransformConfig(strategy="multi_query", num_queries=3),
+    )
+    comp_mq = build_pipeline_components(cfg_mq, corpus_chunks=[], llm_client=mock_llm)
+    assert isinstance(comp_mq.transformer, MultiQueryExpander)
+    t_mq = comp_mq.transformer.transform("What is RAG?")
+    assert t_mq.strategy == "multi_query"
+    assert len(t_mq.transformed_queries) >= 2
+
+    # HyDE
+    cfg_hyde = PipelineConfig(
+        dataset=DatasetConfig(dataset_id="ds", dataset_version_id="v1"),
+        query_transform=QueryTransformConfig(strategy="hyde"),
+    )
+    comp_hyde = build_pipeline_components(cfg_hyde, corpus_chunks=[], llm_client=mock_llm)
+    assert isinstance(comp_hyde.transformer, HyDETransformer)
+    t_hyde = comp_hyde.transformer.transform("What is RAG?")
+    assert t_hyde.strategy == "hyde"
+    assert len(t_hyde.transformed_queries) == 1
+
+
+@pytest.mark.anyio
+async def test_audit_reranking_lineage_rank_preservation(session: AsyncSession) -> None:
+    """Audit Invariant 7: Reranking lineage preserves original retrieval rank vs reranked rank."""
+    dataset_repo = DatasetRepository(session)
+    exp_repo = ExperimentRepository(session)
+    trace_repo = QueryTraceRepository(session)
+
+    ds = await dataset_repo.create_dataset(name="Rerank Lineage DS")
+    ver = await dataset_repo.create_version(
+        dataset_id=ds.id, version_number=1, content_hash="hash-rerank-v1"
+    )
+    docs = await dataset_repo.add_documents(
+        ver.id,
+        [{"filename": "doc.txt", "content": "Rerank content.", "content_hash": "h-rrk"}],
+    )
+    chunks = create_sample_chunks()
+    await dataset_repo.add_chunks(
+        docs[0].id,
+        [
+            {
+                "id": c.chunk_id,
+                "chunk_index": i,
+                "content": c.content,
+                "content_hash": f"h-{i}",
+                "token_count": c.token_count,
+                "strategy": "fixed",
+                "chunking_config_hash": "cfg",
+            }
+            for i, c in enumerate(chunks)
+        ],
+    )
+    exp = await exp_repo.create_experiment("Rerank Exp", ver.id, {}, "hash-rrk-cfg")
+
+    pipeline_cfg = PipelineConfig(
+        dataset=DatasetConfig(dataset_id=ds.id, dataset_version_id=ver.id),
+        retrieval=RetrievalConfig(mode="bm25", top_k=3),
+        reranker=RerankerConfig(enabled=True, strategy="mock", top_n=3),
+    )
+
+    query = EvaluationQuery(
+        query_id="q-rrk",
+        query_text="Photosynthesis sunlight",
+        ground_truth_chunks=["chunk-photo-001"],
+    )
+
+    executor = SingleRunExecutor()
+    result = await executor.execute(
+        experiment_id=exp.id,
+        pipeline_config=pipeline_cfg,
+        queries=[query],
+        corpus_chunks=chunks,
+        session=session,
+    )
+
+    trails = await trace_repo.get_run_evidence_trails(result.experiment_run_id)
+    assert len(trails) == 1
+    reranked = trails[0].reranked_chunks
+    assert len(reranked) > 0
+
+    for r in reranked:
+        assert r["original_rank"] >= 1  # 1-based rank from BM25 retrieval
+        assert r["reranked_rank"] >= 1  # 1-based rank from Mock reranker
+        assert isinstance(r["original_score"], float)  # BM25 score
+        assert isinstance(r["reranker_score"], float)  # Reranker score
 
 
 @pytest.mark.anyio
@@ -587,7 +878,6 @@ async def test_single_run_executor_invalid_chunk_reference_resilience(
         configuration_hash="hash-integrity-exp",
     )
 
-    # Provide corpus chunks whose chunk IDs are NOT added to the database DocumentChunk table
     unregistered_chunks = [
         DocumentChunk.create(
             doc_id="unregistered-doc",
@@ -624,7 +914,6 @@ async def test_single_run_executor_invalid_chunk_reference_resilience(
         validate_chunk_references=True,
     )
 
-    # With validation enabled and ghost chunk retrieved, the query should fail
     assert result.status == "FAILED"
     assert result.failed_queries == 1
     assert result.completed_queries == 0

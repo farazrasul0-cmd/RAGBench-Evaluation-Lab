@@ -15,6 +15,10 @@ class EvaluationQuery(BaseModel):
         default_factory=list,
         description="IDs of passage chunks considered relevant for this query",
     )
+    ground_truth_docs: list[str] = Field(
+        default_factory=list,
+        description="IDs of documents considered relevant for this query",
+    )
     metadata: dict[str, Any] = Field(
         default_factory=dict,
         description="Arbitrary query metadata (e.g. domain, difficulty, topic)",

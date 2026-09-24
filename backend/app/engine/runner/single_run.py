@@ -91,7 +91,7 @@ class SingleRunExecutor:
             pipeline_config_hash=pipeline_config_hash,
         )
 
-        # 3. Create ExperimentRun record in RUNNING status
+        # 3. Create ExperimentRun record in RUNNING status and commit run initialization
         run = await exp_repo.create_run(
             experiment_id=experiment.id,
             pipeline_config_hash=pipeline_config_hash,
@@ -101,6 +101,7 @@ class SingleRunExecutor:
             random_seed=random_seed,
             git_commit=git_commit,
         )
+        await session.commit()
 
         # 4. Instantiate and wire Phase A-E pipeline components
         components = build_pipeline_components(
@@ -110,7 +111,10 @@ class SingleRunExecutor:
             embedding_provider=embedding_provider,
         )
 
-        # 5. Query execution loop
+        # Maintain explicit chunk-to-document ID mapping to guarantee chunk_id != doc_id
+        chunk_to_doc_map = {c.chunk_id: c.doc_id for c in corpus_chunks}
+
+        # 5. Query execution loop with per-query atomic transactions
         all_metric_values: dict[str, list[float]] = defaultdict(list)
         completed_queries = 0
         failed_queries = 0
@@ -160,7 +164,7 @@ class SingleRunExecutor:
                     for idx, (chunk, score) in enumerate(retrieved_pairs, start=1)
                 ]
 
-                # 5c. Passage Reranking
+                # 5c. Passage Reranking (preserves original retrieval ranking vs reranked ranking)
                 if components.reranker is not None and retrieved_pairs:
                     candidates = [chunk for chunk, _ in retrieved_pairs]
                     orig_scores = {
@@ -222,13 +226,20 @@ class SingleRunExecutor:
                 }
 
                 # 5f. Quantitative Evaluation Metrics
+                # Distinct representations for chunk IDs vs document IDs
                 retrieved_chunk_ids = [c.chunk_id for c, _ in final_pairs]
+                retrieved_doc_ids = [
+                    chunk_to_doc_map.get(c.chunk_id, c.doc_id) for c, _ in final_pairs
+                ]
+
                 gt_chunks = q.ground_truth_chunks
+                gt_docs = q.ground_truth_docs
                 configured_metrics = {m.lower().strip() for m in pipeline_config.evaluation.metrics}
                 k_values = pipeline_config.evaluation.k_values or [1, 3, 5, 10, 20]
 
                 metric_results_data: list[dict[str, Any]] = []
 
+                # Chunk-level Information Retrieval metrics
                 for k in k_values:
                     if "recall" in configured_metrics:
                         r_val = recall_at_k(retrieved_chunk_ids, gt_chunks, k)
@@ -237,7 +248,7 @@ class SingleRunExecutor:
                                 "metric_name": f"recall@{k}",
                                 "metric_value": r_val,
                                 "metric_version": "v1",
-                                "evaluator": "ir",
+                                "evaluator": "ir_chunk",
                             }
                         )
                         all_metric_values[f"recall@{k}"].append(r_val)
@@ -249,7 +260,7 @@ class SingleRunExecutor:
                                 "metric_name": f"precision@{k}",
                                 "metric_value": p_val,
                                 "metric_version": "v1",
-                                "evaluator": "ir",
+                                "evaluator": "ir_chunk",
                             }
                         )
                         all_metric_values[f"precision@{k}"].append(p_val)
@@ -261,7 +272,7 @@ class SingleRunExecutor:
                                 "metric_name": f"mrr@{k}",
                                 "metric_value": mrr_val,
                                 "metric_version": "v1",
-                                "evaluator": "ir",
+                                "evaluator": "ir_chunk",
                             }
                         )
                         all_metric_values[f"mrr@{k}"].append(mrr_val)
@@ -273,7 +284,7 @@ class SingleRunExecutor:
                                 "metric_name": f"ndcg@{k}",
                                 "metric_value": ndcg_val,
                                 "metric_version": "v1",
-                                "evaluator": "ir",
+                                "evaluator": "ir_chunk",
                             }
                         )
                         all_metric_values[f"ndcg@{k}"].append(ndcg_val)
@@ -285,10 +296,23 @@ class SingleRunExecutor:
                                 "metric_name": f"hit@{k}",
                                 "metric_value": hit_val,
                                 "metric_version": "v1",
-                                "evaluator": "ir",
+                                "evaluator": "ir_chunk",
                             }
                         )
                         all_metric_values[f"hit@{k}"].append(hit_val)
+
+                    # Document-level IR metrics (evaluated when ground_truth_docs is supplied)
+                    if gt_docs:
+                        doc_recall = recall_at_k(retrieved_doc_ids, gt_docs, k)
+                        metric_results_data.append(
+                            {
+                                "metric_name": f"doc_recall@{k}",
+                                "metric_value": doc_recall,
+                                "metric_version": "v1",
+                                "evaluator": "ir_doc",
+                            }
+                        )
+                        all_metric_values[f"doc_recall@{k}"].append(doc_recall)
 
                 # Factuality & Citation metrics
                 classifier = (
@@ -348,42 +372,55 @@ class SingleRunExecutor:
 
                 q_latency_ms = (time.perf_counter() - q_start) * 1000.0
 
-                # 5g. Record query trace atomically
-                await trace_repo.record_query_trace(
-                    experiment_run_id=run.id,
-                    query_id=q.query_id,
-                    original_query=q.query_text,
-                    expected_answer=q.expected_answer,
-                    ground_truth_chunks=q.ground_truth_chunks,
-                    latency_ms=q_latency_ms,
-                    status="SUCCESS",
-                    metadata=q.metadata,
-                    transformed_queries=transformed_queries_data,
-                    retrieved_chunks=retrieved_chunks_data,
-                    reranked_chunks=reranked_chunks_data,
-                    packed_context=packed_context_data,
-                    generation_result=generation_data,
-                    metric_results=metric_results_data,
-                    validate_chunk_references=validate_chunk_references,
-                )
+                query_metadata = {
+                    **q.metadata,
+                    "retrieved_doc_ids": retrieved_doc_ids,
+                    "ground_truth_docs": gt_docs,
+                }
+
+                # 5g. Record query trace in savepoint, then commit query transaction
+                async with session.begin_nested():
+                    await trace_repo.record_query_trace(
+                        experiment_run_id=run.id,
+                        query_id=q.query_id,
+                        original_query=q.query_text,
+                        expected_answer=q.expected_answer,
+                        ground_truth_chunks=q.ground_truth_chunks,
+                        latency_ms=q_latency_ms,
+                        status="SUCCESS",
+                        metadata=query_metadata,
+                        transformed_queries=transformed_queries_data,
+                        retrieved_chunks=retrieved_chunks_data,
+                        reranked_chunks=reranked_chunks_data,
+                        packed_context=packed_context_data,
+                        generation_result=generation_data,
+                        metric_results=metric_results_data,
+                        validate_chunk_references=validate_chunk_references,
+                    )
+                await session.commit()
                 completed_queries += 1
 
             except Exception as exc:
                 failed_queries += 1
                 q_latency_ms = (time.perf_counter() - q_start) * 1000.0
-                await trace_repo.record_query_trace(
-                    experiment_run_id=run.id,
-                    query_id=q.query_id,
-                    original_query=q.query_text,
-                    expected_answer=q.expected_answer,
-                    ground_truth_chunks=q.ground_truth_chunks,
-                    latency_ms=q_latency_ms,
-                    status="FAILED",
-                    metadata={"error": str(exc), **q.metadata},
-                    validate_chunk_references=False,
-                )
+                try:
+                    async with session.begin_nested():
+                        await trace_repo.record_query_trace(
+                            experiment_run_id=run.id,
+                            query_id=q.query_id,
+                            original_query=q.query_text,
+                            expected_answer=q.expected_answer,
+                            ground_truth_chunks=q.ground_truth_chunks,
+                            latency_ms=q_latency_ms,
+                            status="FAILED",
+                            metadata={"error": str(exc), **q.metadata},
+                            validate_chunk_references=False,
+                        )
+                    await session.commit()
+                except Exception:
+                    await session.rollback()
 
-        # 6. Aggregate metric summaries
+        # 6. Aggregate metric summaries (computed strictly from successful observations)
         summaries_data: list[dict[str, Any]] = []
         mean_metrics_map: dict[str, float] = {}
 
@@ -395,6 +432,7 @@ class SingleRunExecutor:
             med_v = statistics.median(vals)
             min_v = min(vals)
             max_v = max(vals)
+            # Sample standard deviation (Bessel's correction with N-1 degrees of freedom)
             std_v = statistics.stdev(vals) if cnt > 1 else 0.0
 
             summaries_data.append(
@@ -406,7 +444,10 @@ class SingleRunExecutor:
                     "max": max_v,
                     "stddev": std_v,
                     "count": cnt,
-                    "metadata": {},
+                    "metadata": {
+                        "stddev_type": "sample",
+                        "dof": max(cnt - 1, 0),
+                    },
                 }
             )
             mean_metrics_map[m_name] = mean_v
