@@ -1,6 +1,8 @@
 """Experiment CLI commands: run, plan, show, and compare."""
 
 import asyncio
+import csv
+import io
 import json
 import sys
 from pathlib import Path
@@ -13,6 +15,14 @@ from app.db.repositories.dataset import DatasetRepository
 from app.db.repositories.experiment import ExperimentRepository
 from app.db.repositories.query_trace import QueryTraceRepository
 from app.db.session import get_async_engine, get_session_factory, init_db
+from app.engine.analysis.alignment import IncompatibleRunsError, QuerySetMismatchError
+from app.engine.analysis.export import (
+    AcademicLatexExporter,
+    CSVExporter,
+    ReplicationArchiveExporter,
+    escape_latex,
+)
+from app.engine.analysis.statistics import StatisticalComparator
 from app.engine.orchestrator.cartesian import CartesianExpander
 from app.engine.orchestrator.dry_run import DryRunPlanner
 from app.engine.runner.matrix import MatrixRunner
@@ -442,8 +452,40 @@ def show_command(run_id: str, query_id: str | None, full: bool, db_url: str | No
 @experiment_group.command(name="compare")
 @click.argument("run_id_1")
 @click.argument("run_id_2")
+@click.option(
+    "--stats",
+    is_flag=True,
+    default=False,
+    help="Perform paired statistical hypothesis testing (t-test, Wilcoxon, Cohen's dz, 95% CI).",
+)
+@click.option(
+    "--correction",
+    type=click.Choice(["holm", "bh_fdr", "none"], case_sensitive=False),
+    default="holm",
+    help="Multiple testing correction method: holm (default), bh_fdr, or none.",
+)
+@click.option(
+    "--warmup",
+    default=0,
+    type=int,
+    help="Number of initial queries to drop from latency metrics for warm-up.",
+)
+@click.option(
+    "--allow-partial-query-overlap",
+    is_flag=True,
+    default=False,
+    help="Allow partial query set overlap between runs.",
+)
 @click.option("--db-url", default=None, help="Database connection URL override.")
-def compare_command(run_id_1: str, run_id_2: str, db_url: str | None) -> None:
+def compare_command(
+    run_id_1: str,
+    run_id_2: str,
+    stats: bool,
+    correction: str,
+    warmup: int,
+    allow_partial_query_overlap: bool,
+    db_url: str | None,
+) -> None:
     """Side-by-side comparative analysis of pipeline parameters and metrics for two runs."""
 
     async def _compare() -> int:
@@ -452,6 +494,7 @@ def compare_command(run_id_1: str, run_id_2: str, db_url: str | None) -> None:
 
         async with session_factory() as session:
             exp_repo = ExperimentRepository(session)
+            trace_repo = QueryTraceRepository(session)
 
             r1 = await exp_repo.get_run(run_id_1)
             r2 = await exp_repo.get_run(run_id_2)
@@ -472,6 +515,10 @@ def compare_command(run_id_1: str, run_id_2: str, db_url: str | None) -> None:
             # 1. Pipeline Parameter Differences
             exp1 = await exp_repo.get_experiment(r1.experiment_id)
             exp2 = await exp_repo.get_experiment(r2.experiment_id)
+            if exp1 is not None:
+                r1.experiment = exp1
+            if exp2 is not None:
+                r2.experiment = exp2
 
             pipe_cfg_1: PipelineConfig | None = None
             pipe_cfg_2: PipelineConfig | None = None
@@ -558,14 +605,382 @@ def compare_command(run_id_1: str, run_id_2: str, db_url: str | None) -> None:
                 if (r2.completed_at and r2.started_at)
                 else None
             )
-            click.echo(
-                f"Duration Run 1: {dur_1:.1f}ms | Duration Run 2: {dur_2:.1f}ms"
-                if (dur_1 is not None and dur_2 is not None)
-                else ""
-            )
+            if dur_1 is not None and dur_2 is not None:
+                click.echo(f"Duration Run 1: {dur_1:.1f}ms | Duration Run 2: {dur_2:.1f}ms\n")
+
+            # 4. Statistical Hypothesis Testing
+            if stats:
+                trails_1 = await trace_repo.get_run_evidence_trails(r1.id)
+                trails_2 = await trace_repo.get_run_evidence_trails(r2.id)
+
+                if not trails_1 or not trails_2:
+                    click.echo(
+                        "Warning: Query evidence trails are empty for one or both runs.", err=True
+                    )
+                else:
+                    metrics_by_query_a: dict[str, dict[str, float]] = {}
+                    for t in trails_1:
+                        m_map = dict(t.metric_results)
+                        m_map["latency_ms"] = t.latency_ms
+                        metrics_by_query_a[t.query_id] = m_map
+
+                    metrics_by_query_b: dict[str, dict[str, float]] = {}
+                    for t in trails_2:
+                        m_map = dict(t.metric_results)
+                        m_map["latency_ms"] = t.latency_ms
+                        metrics_by_query_b[t.query_id] = m_map
+
+                    try:
+                        report = StatisticalComparator.compare_runs(
+                            run_a=r1,
+                            run_b=r2,
+                            metrics_by_query_a=metrics_by_query_a,
+                            metrics_by_query_b=metrics_by_query_b,
+                            correction_method=correction.lower(),
+                            warmup_queries=warmup,
+                            allow_partial_query_overlap=allow_partial_query_overlap,
+                        )
+
+                        stat_headers = [
+                            "Metric",
+                            f"Run 1 ({r1.id[:8]})",
+                            f"Run 2 ({r2.id[:8]})",
+                            "Mean Δ",
+                            "95% CI (Δ)",
+                            "t-stat",
+                            "Wilcoxon W",
+                            f"Adj. p ({report.adjustment_method})",
+                            "Sig",
+                            "Cohen's dz",
+                        ]
+                        stat_rows: list[list[Any]] = []
+
+                        for m_name, res in sorted(report.metrics.items()):
+                            mean_1 = f"{res.mean_a:.4f}"
+                            mean_2 = f"{res.mean_b:.4f}"
+                            mean_delta = f"{res.mean_difference:+.4f}"
+                            ci_str = (
+                                f"[{res.ci95_lower:+.4f}, {res.ci95_upper:+.4f}]"
+                                if (res.ci95_lower is not None and res.ci95_upper is not None)
+                                else "N/A"
+                            )
+                            t_str = (
+                                f"{res.t_statistic:.3f}" if res.t_statistic is not None else "N/A"
+                            )
+                            w_str = (
+                                f"{res.wilcoxon_statistic:.1f}"
+                                if res.wilcoxon_statistic is not None
+                                else "N/A"
+                            )
+                            p_str = (
+                                f"{res.adjusted_p_value:.4f}"
+                                if res.adjusted_p_value is not None
+                                else "N/A"
+                            )
+                            sig_str = res.significance_level
+                            dz_str = f"{res.cohens_dz:+.2f}" if res.cohens_dz is not None else "N/A"
+
+                            stat_rows.append(
+                                [
+                                    m_name,
+                                    mean_1,
+                                    mean_2,
+                                    mean_delta,
+                                    ci_str,
+                                    t_str,
+                                    w_str,
+                                    p_str,
+                                    sig_str,
+                                    dz_str,
+                                ]
+                            )
+
+                        click.echo(
+                            render_table(
+                                stat_headers,
+                                stat_rows,
+                                title=(
+                                    "Statistical Significance Analysis "
+                                    f"({report.adjustment_method.upper()})"
+                                ),
+                            )
+                        )
+                        click.echo(
+                            "Significance: * p < 0.05, ** p < 0.01, *** p < 0.001 "
+                            "(Two-tailed paired t-test & Wilcoxon signed-rank test)\n"
+                        )
+
+                    except (IncompatibleRunsError, QuerySetMismatchError) as exc:
+                        click.echo(f"Statistical Analysis Incompatible: {exc}", err=True)
+                        await engine.dispose()
+                        return 1
 
         await engine.dispose()
         return 0
 
     code = asyncio.run(_compare())
+    sys.exit(code)
+
+
+@experiment_group.command(name="export")
+@click.argument("run_id_1")
+@click.argument("run_id_2", required=False, default=None)
+@click.option(
+    "--format",
+    "-f",
+    "export_format",
+    type=click.Choice(["latex", "csv", "replication"], case_sensitive=False),
+    default="latex",
+    help="Export format: publication latex table, csv summary, or replication bundle.",
+)
+@click.option(
+    "--output",
+    "-o",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="Output file or directory path.",
+)
+@click.option(
+    "--correction",
+    type=click.Choice(["holm", "bh_fdr", "none"], case_sensitive=False),
+    default="holm",
+    help="Multiple testing correction method: holm (default), bh_fdr, or none.",
+)
+@click.option(
+    "--warmup",
+    default=0,
+    type=int,
+    help="Number of initial queries to drop from latency metrics for warm-up.",
+)
+@click.option(
+    "--allow-partial-query-overlap",
+    is_flag=True,
+    default=False,
+    help="Allow partial query set overlap between runs.",
+)
+@click.option("--db-url", default=None, help="Database connection URL override.")
+def export_command(
+    run_id_1: str,
+    run_id_2: str | None,
+    export_format: str,
+    output: Path | None,
+    correction: str,
+    warmup: int,
+    allow_partial_query_overlap: bool,
+    db_url: str | None,
+) -> None:
+    """Export academic LaTeX tables, CSV summaries, or replication archives for experiment runs."""
+
+    async def _export() -> int:
+        engine = get_async_engine(db_url)
+        session_factory = get_session_factory(engine)
+
+        async with session_factory() as session:
+            exp_repo = ExperimentRepository(session)
+            trace_repo = QueryTraceRepository(session)
+
+            r1 = await exp_repo.get_run(run_id_1)
+            if not r1:
+                click.echo(f"Run 1 '{run_id_1}' not found.", err=True)
+                await engine.dispose()
+                return 1
+
+            exp1 = await exp_repo.get_experiment(r1.experiment_id)
+            if exp1 is not None:
+                r1.experiment = exp1
+
+            if run_id_2 is not None:
+                r2 = await exp_repo.get_run(run_id_2)
+                if not r2:
+                    click.echo(f"Run 2 '{run_id_2}' not found.", err=True)
+                    await engine.dispose()
+                    return 1
+
+                exp2 = await exp_repo.get_experiment(r2.experiment_id)
+                if exp2 is not None:
+                    r2.experiment = exp2
+
+                trails_1 = await trace_repo.get_run_evidence_trails(r1.id)
+                trails_2 = await trace_repo.get_run_evidence_trails(r2.id)
+
+                metrics_by_query_a: dict[str, dict[str, float]] = {}
+                for t in trails_1:
+                    m_map = dict(t.metric_results)
+                    m_map["latency_ms"] = t.latency_ms
+                    metrics_by_query_a[t.query_id] = m_map
+
+                metrics_by_query_b: dict[str, dict[str, float]] = {}
+                for t in trails_2:
+                    m_map = dict(t.metric_results)
+                    m_map["latency_ms"] = t.latency_ms
+                    metrics_by_query_b[t.query_id] = m_map
+
+                try:
+                    report = StatisticalComparator.compare_runs(
+                        run_a=r1,
+                        run_b=r2,
+                        metrics_by_query_a=metrics_by_query_a,
+                        metrics_by_query_b=metrics_by_query_b,
+                        correction_method=correction.lower(),
+                        warmup_queries=warmup,
+                        allow_partial_query_overlap=allow_partial_query_overlap,
+                    )
+                except (IncompatibleRunsError, QuerySetMismatchError) as exc:
+                    click.echo(f"Export Incompatible: {exc}", err=True)
+                    await engine.dispose()
+                    return 1
+
+                # Calculate config diff if available
+                config_diff: dict[str, Any] | None = None
+                pipe_cfg_1: PipelineConfig | None = None
+                pipe_cfg_2: PipelineConfig | None = None
+                if exp1 and exp1.configuration:
+                    try:
+                        c1 = ExperimentConfig(**exp1.configuration)
+                        for p in CartesianExpander.expand(c1):
+                            if p.compute_configuration_hash() == r1.pipeline_config_hash:
+                                pipe_cfg_1 = p
+                                break
+                    except Exception:
+                        pass
+                if exp2 and exp2.configuration:
+                    try:
+                        c2 = ExperimentConfig(**exp2.configuration)
+                        for p in CartesianExpander.expand(c2):
+                            if p.compute_configuration_hash() == r2.pipeline_config_hash:
+                                pipe_cfg_2 = p
+                                break
+                    except Exception:
+                        pass
+
+                if pipe_cfg_1 and pipe_cfg_2:
+                    d1 = pipe_cfg_1.model_dump()
+                    d2 = pipe_cfg_2.model_dump()
+                    diffs: dict[str, Any] = {}
+                    for comp in sorted(set(d1.keys()) | set(d2.keys())):
+                        sub1 = d1.get(comp, {})
+                        sub2 = d2.get(comp, {})
+                        if isinstance(sub1, dict) and isinstance(sub2, dict):
+                            for param in sorted(set(sub1.keys()) | set(sub2.keys())):
+                                if sub1.get(param) != sub2.get(param):
+                                    diffs[f"{comp}.{param}"] = {
+                                        "run_1": sub1.get(param),
+                                        "run_2": sub2.get(param),
+                                    }
+                    if diffs:
+                        config_diff = diffs
+
+                fmt = export_format.lower()
+                if fmt == "latex":
+                    latex_str = AcademicLatexExporter.export_comparison_table(report)
+                    if output:
+                        output.parent.mkdir(parents=True, exist_ok=True)
+                        output.write_text(latex_str, encoding="utf-8")
+                        click.echo(f"Exported LaTeX comparison table to: {output}")
+                    else:
+                        click.echo(latex_str)
+
+                elif fmt == "csv":
+                    csv_str = CSVExporter.export_summary_csv(report)
+                    if output:
+                        output.parent.mkdir(parents=True, exist_ok=True)
+                        output.write_text(csv_str, encoding="utf-8")
+                        click.echo(f"Exported CSV summary to: {output}")
+                    else:
+                        click.echo(csv_str)
+
+                elif fmt == "replication":
+                    dest_dir = output or Path(f"replication_{r1.id[:8]}_{r2.id[:8]}")
+                    ReplicationArchiveExporter.export_package(
+                        report=report,
+                        target_dir=dest_dir,
+                        config_diff=config_diff,
+                    )
+                    click.echo(f"Exported complete replication archive package to: {dest_dir}")
+
+            else:
+                fmt = export_format.lower()
+                if fmt == "latex":
+                    lines = [
+                        "% Auto-generated by RAGBench Evaluation Lab",
+                        "\\begin{table}[t]",
+                        "\\centering",
+                        "\\small",
+                        "\\begin{tabular}{lccccc}",
+                        "\\toprule",
+                        "\\textbf{Metric} & \\textbf{Mean} & \\textbf{Median} & "
+                        "\\textbf{Min} & \\textbf{Max} & \\textbf{StdDev} \\\\",
+                        "\\midrule",
+                    ]
+                    for s in r1.metric_summaries:
+                        m_safe = escape_latex(s.metric_name)
+                        line_tex = (
+                            f"{m_safe} & {s.mean:.4f} & {s.median:.4f} & "
+                            f"{s.min:.4f} & {s.max:.4f} & {s.stddev:.4f} \\\\"
+                        )
+                        lines.append(line_tex)
+                    lines.extend(
+                        [
+                            "\\bottomrule",
+                            "\\end{tabular}",
+                            f"\\caption{{Metric Summaries for Run {r1.id[:8]}}}",
+                            f"\\label{{tab:ragbench_run_{r1.id[:8]}}}",
+                            "\\end{table}",
+                        ]
+                    )
+                    latex_str = "\n".join(lines)
+                    if output:
+                        output.parent.mkdir(parents=True, exist_ok=True)
+                        output.write_text(latex_str, encoding="utf-8")
+                        click.echo(f"Exported single-run LaTeX table to: {output}")
+                    else:
+                        click.echo(latex_str)
+
+                elif fmt == "csv":
+                    out_io = io.StringIO()
+                    writer = csv.writer(out_io)
+                    writer.writerow(["metric", "mean", "median", "min", "max", "stddev", "count"])
+                    for s in r1.metric_summaries:
+                        writer.writerow(
+                            [
+                                s.metric_name,
+                                f"{s.mean:.6f}",
+                                f"{s.median:.6f}",
+                                f"{s.min:.6f}",
+                                f"{s.max:.6f}",
+                                f"{s.stddev:.6f}",
+                                s.count,
+                            ]
+                        )
+                    csv_str = out_io.getvalue()
+                    if output:
+                        output.parent.mkdir(parents=True, exist_ok=True)
+                        output.write_text(csv_str, encoding="utf-8")
+                        click.echo(f"Exported single-run CSV summary to: {output}")
+                    else:
+                        click.echo(csv_str)
+
+                elif fmt == "replication":
+                    dest_dir = output or Path(f"replication_{r1.id[:8]}")
+                    dest_dir.mkdir(parents=True, exist_ok=True)
+                    meta_path = dest_dir / "run_summary.json"
+                    meta_path.write_text(
+                        json.dumps(
+                            {
+                                "run_id": r1.id,
+                                "status": r1.status,
+                                "pipeline_config_hash": r1.pipeline_config_hash,
+                                "cache_hash": r1.cache_hash,
+                                "metrics": {s.metric_name: s.mean for s in r1.metric_summaries},
+                            },
+                            indent=2,
+                        ),
+                        encoding="utf-8",
+                    )
+                    click.echo(f"Exported single-run archive to: {dest_dir}")
+
+        await engine.dispose()
+        return 0
+
+    code = asyncio.run(_export())
     sys.exit(code)

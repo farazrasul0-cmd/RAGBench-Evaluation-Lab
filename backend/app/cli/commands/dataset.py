@@ -16,7 +16,9 @@ from app.engine.chunkers.base import BaseChunker
 from app.engine.chunkers.fixed_token import FixedTokenChunker
 from app.engine.chunkers.recursive import RecursiveCharacterChunker
 from app.engine.chunkers.sentence import SentenceBoundaryChunker
-from app.engine.parsers import PlainTextParser, get_parser_for_file
+from app.engine.parsers import get_parser_for_file
+from app.schemas.benchmark import BenchmarkQuery, BenchmarkQuerySet, GroundTruthPassage
+from app.schemas.chunk import DocumentChunk
 from app.schemas.document import RawDocument
 
 
@@ -44,6 +46,18 @@ def dataset_group() -> None:
     default=None,
     help="Path to JSON file containing benchmark evaluation queries.",
 )
+@click.option(
+    "--eval-qa",
+    type=click.Path(exists=True, dir_okay=False, path_type=Path),
+    default=None,
+    help="Path to JSONL file containing benchmark evaluation QA pairs.",
+)
+@click.option(
+    "--allow-unresolved-passages",
+    is_flag=True,
+    default=False,
+    help="Allow ground truth passages that cannot be mapped to any chunk.",
+)
 @click.option("--db-url", default=None, help="Database connection URL override.")
 def register_command(
     path: Path,
@@ -53,6 +67,8 @@ def register_command(
     chunk_size: int,
     chunk_overlap: int,
     queries: Path | None,
+    eval_qa: Path | None,
+    allow_unresolved_passages: bool,
     db_url: str | None,
 ) -> None:
     """Register and snapshot local document files using Phase A canonical chunking."""
@@ -69,7 +85,7 @@ def register_command(
         click.echo(f"No document files found in '{path}'.", err=True)
         sys.exit(1)
 
-    # Load optional benchmark queries from JSON file
+    # Load optional benchmark queries from legacy JSON file
     queries_data: list[dict[str, Any]] = []
     if queries is not None:
         try:
@@ -83,6 +99,106 @@ def register_command(
                 queries_data = loaded_queries
         except Exception as exc:
             click.echo(f"Error reading queries file '{queries}': {exc}", err=True)
+            sys.exit(1)
+
+    # Load first-class benchmark QA pairs from JSONL file
+    benchmark_query_set: BenchmarkQuerySet | None = None
+    if eval_qa is not None:
+        try:
+            b_queries: list[BenchmarkQuery] = []
+            with open(eval_qa, encoding="utf-8") as eqf:
+                for line_idx, line in enumerate(eqf, start=1):
+                    line_str = line.strip()
+                    if not line_str:
+                        continue
+                    item = json.loads(line_str)
+                    q_id = str(item.get("query_id") or item.get("id") or f"q_{line_idx}")
+                    q_text = str(
+                        item.get("query") or item.get("query_text") or item.get("question") or ""
+                    )
+                    gt_ans = str(
+                        item.get("ground_truth_answer")
+                        or item.get("answer")
+                        or item.get("reference_answer")
+                        or ""
+                    )
+                    passages_raw = item.get("ground_truth_passages") or item.get("passages") or []
+                    passages: list[GroundTruthPassage] = []
+                    for p in passages_raw:
+                        if isinstance(p, dict):
+                            passages.append(
+                                GroundTruthPassage(
+                                    doc_id=str(
+                                        p.get("doc_id")
+                                        or p.get("filename")
+                                        or p.get("document_id")
+                                        or ""
+                                    ),
+                                    passage_id=p.get("passage_id") or p.get("chunk_id"),
+                                    text_snippet=str(
+                                        p.get("text_snippet")
+                                        or p.get("snippet")
+                                        or p.get("text")
+                                        or ""
+                                    ),
+                                    metadata={
+                                        k: v
+                                        for k, v in p.items()
+                                        if k
+                                        not in (
+                                            "doc_id",
+                                            "filename",
+                                            "document_id",
+                                            "passage_id",
+                                            "chunk_id",
+                                            "text_snippet",
+                                            "snippet",
+                                            "text",
+                                        )
+                                    },
+                                )
+                            )
+                        elif isinstance(p, str):
+                            passages.append(GroundTruthPassage(doc_id="", text_snippet=p))
+                    b_queries.append(
+                        BenchmarkQuery(
+                            query_id=q_id,
+                            query=q_text,
+                            ground_truth_answer=gt_ans,
+                            ground_truth_passages=passages,
+                            domain=item.get("domain", "general"),
+                            language=item.get("language", "en"),
+                            difficulty=item.get("difficulty", "medium"),
+                            metadata={
+                                k: v
+                                for k, v in item.items()
+                                if k
+                                not in (
+                                    "query_id",
+                                    "id",
+                                    "query",
+                                    "query_text",
+                                    "question",
+                                    "ground_truth_answer",
+                                    "answer",
+                                    "reference_answer",
+                                    "ground_truth_passages",
+                                    "passages",
+                                    "domain",
+                                    "language",
+                                    "difficulty",
+                                )
+                            },
+                        )
+                    )
+            benchmark_query_set = BenchmarkQuerySet(
+                name=f"{dataset_name}_benchmark",
+                version=version,
+                queries=b_queries,
+                metadata={"source_file": str(eval_qa)},
+            )
+        except Exception as exc:
+            click.echo(f"Error reading benchmark QA file '{eval_qa}': {exc}", err=True)
             sys.exit(1)
 
     # Initialize Phase A Chunker
@@ -111,7 +227,7 @@ def register_command(
             if not ds:
                 ds = await dataset_repo.create_dataset(name=dataset_name)
 
-            # Parse files with Phase A parsers and calculate aggregate version content hash
+            # Parse files strictly with Phase A parsers (no silent fallback)
             parsed_docs: list[RawDocument] = []
             full_content_bytes = bytearray()
 
@@ -119,15 +235,89 @@ def register_command(
                 try:
                     parser = get_parser_for_file(f)
                     raw_doc = parser.parse(f)
-                except Exception:
-                    raw_doc = PlainTextParser().parse(f)
+                except Exception as exc:
+                    click.echo(
+                        f"Error parsing file '{f}': {exc}. Ingestion aborted.",
+                        err=True,
+                    )
+                    return 1
 
                 parsed_docs.append(raw_doc)
                 full_content_bytes.extend(raw_doc.content.encode("utf-8"))
 
             ver_content_hash = hashlib.sha256(full_content_bytes).hexdigest()
 
-            # Create immutable dataset version snapshot with metadata including benchmark queries
+            # Chunk all documents first and collect all chunks for passage mapping
+            total_chunks = 0
+            doc_chunk_map: list[tuple[RawDocument, list[DocumentChunk]]] = []
+            all_chunks: list[DocumentChunk] = []
+
+            for raw_doc in parsed_docs:
+                chunks = chunker.chunk(raw_doc)
+                doc_chunk_map.append((raw_doc, chunks))
+                all_chunks.extend(chunks)
+                total_chunks += len(chunks)
+
+            # Resolve benchmark QA ground-truth passages to chunks deterministically
+            if benchmark_query_set is not None:
+                for b_q in benchmark_query_set.queries:
+                    for passage in b_q.ground_truth_passages:
+                        snippet = passage.text_snippet.strip()
+                        norm_snippet = " ".join(snippet.split())
+                        if not snippet:
+                            continue
+
+                        # 1. Match by explicit chunk_id / passage_id if provided
+                        matching_chunks: list[DocumentChunk] = []
+                        if passage.passage_id:
+                            matching_chunks = [
+                                c for c in all_chunks if c.chunk_id == passage.passage_id
+                            ]
+
+                        # 2. Match by normalized substring search if not matched by ID
+                        if not matching_chunks:
+                            candidates = all_chunks
+                            if passage.doc_id:
+                                doc_candidates = [
+                                    c
+                                    for c in all_chunks
+                                    if c.metadata.get("filename") == passage.doc_id
+                                    or passage.doc_id in c.chunk_id
+                                    or c.metadata.get("doc_id") == passage.doc_id
+                                ]
+                                if doc_candidates:
+                                    candidates = doc_candidates
+
+                            matching_chunks = [
+                                c for c in candidates if norm_snippet in " ".join(c.content.split())
+                            ]
+
+                        if len(matching_chunks) == 1:
+                            resolved_chunk = matching_chunks[0]
+                            passage.passage_id = resolved_chunk.chunk_id
+                            passage.metadata["resolved_chunk_id"] = resolved_chunk.chunk_id
+                        elif len(matching_chunks) > 1:
+                            m_ids = [c.chunk_id for c in matching_chunks]
+                            click.echo(
+                                f"Error: Ground truth passage in query '{b_q.query_id}' is "
+                                f"AMBIGUOUS. "
+                                f"Matches multiple chunks {m_ids}. Snippet: '{snippet[:50]}...'",
+                                err=True,
+                            )
+                            return 1
+                        else:
+                            if not allow_unresolved_passages:
+                                click.echo(
+                                    f"Error: Ground truth passage in query '{b_q.query_id}' is "
+                                    f"UNRESOLVED. "
+                                    f"Could not map snippet to any chunk: '{snippet[:50]}...'",
+                                    err=True,
+                                )
+                                return 1
+                            else:
+                                passage.metadata["resolved_chunk_id"] = None
+
+            # Create immutable dataset version snapshot with metadata
             version_metadata: dict[str, Any] = {
                 "chunking_strategy": strategy_lower,
                 "chunk_size": chunk_size,
@@ -135,6 +325,25 @@ def register_command(
             }
             if queries_data:
                 version_metadata["queries"] = queries_data
+            elif benchmark_query_set is not None:
+                version_metadata["queries"] = [
+                    {
+                        "query_id": q.query_id,
+                        "query_text": q.query,
+                        "ground_truth_chunks": [
+                            p.metadata.get("resolved_chunk_id") or p.passage_id
+                            for p in q.ground_truth_passages
+                            if (p.metadata.get("resolved_chunk_id") or p.passage_id)
+                        ],
+                        "ground_truth_answer": q.ground_truth_answer,
+                        "metadata": q.metadata,
+                    }
+                    for q in benchmark_query_set.queries
+                ]
+
+            if benchmark_query_set is not None:
+                version_metadata["benchmark"] = benchmark_query_set.model_dump()
+                version_metadata["benchmark_hash"] = benchmark_query_set.compute_benchmark_hash()
 
             ver = await dataset_repo.create_version(
                 dataset_id=ds.id,
@@ -144,8 +353,7 @@ def register_command(
             )
 
             # Persist documents and canonical Phase A chunks
-            total_chunks = 0
-            for raw_doc in parsed_docs:
+            for raw_doc, chunks in doc_chunk_map:
                 db_docs = await dataset_repo.add_documents(
                     ver.id,
                     [
@@ -162,8 +370,6 @@ def register_command(
                 )
                 db_doc = db_docs[0]
 
-                # Chunk using Phase A canonical chunker
-                chunks = chunker.chunk(raw_doc)
                 chunks_payload = [
                     {
                         "id": c.chunk_id,
@@ -183,7 +389,6 @@ def register_command(
 
                 if chunks_payload:
                     await dataset_repo.add_chunks(db_doc.id, chunks_payload)
-                    total_chunks += len(chunks_payload)
 
             await session.commit()
 
@@ -196,7 +401,11 @@ def register_command(
             )
             click.echo(f"  Documents:          {len(parsed_docs)}")
             click.echo(f"  Total Chunks:       {total_chunks}")
-            if queries_data:
+            if benchmark_query_set is not None:
+                b_hash = version_metadata["benchmark_hash"]
+                b_count = len(benchmark_query_set.queries)
+                click.echo(f"  Benchmark Queries:  {b_count} (Hash: {b_hash[:16]}...)")
+            elif queries_data:
                 click.echo(f"  Benchmark Queries:  {len(queries_data)}")
 
         await engine.dispose()
