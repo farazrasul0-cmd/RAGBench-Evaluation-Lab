@@ -148,3 +148,24 @@ class DatasetRepository:
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
+
+    async def list_datasets(self) -> list[Dataset]:
+        """Fetch all datasets with version history."""
+        stmt = (
+            select(Dataset)
+            .options(selectinload(Dataset.versions))
+            .order_by(Dataset.created_at.desc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
+
+    async def get_documents(self, version_id: str) -> list[Document]:
+        """Fetch all documents and their chunks for a dataset version."""
+        stmt = (
+            select(Document)
+            .where(Document.dataset_version_id == version_id)
+            .options(selectinload(Document.chunks))
+            .order_by(Document.created_at.asc())
+        )
+        result = await self.session.execute(stmt)
+        return list(result.scalars().all())
