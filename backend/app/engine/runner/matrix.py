@@ -239,16 +239,15 @@ class MatrixRunner:
         indexed_results.sort(key=lambda x: x[0])
         ordered_results = [res for _, res in indexed_results]
 
-        # 6. Aggregate matrix-level status and statistics (Amendment 8)
+        # 6. Aggregate matrix-level status and statistics (Corrections A & B)
         total_configurations = len(pipeline_configs)
         cached_runs = sum(1 for r in ordered_results if r.cached)
-        executed_runs = sum(1 for r in ordered_results if not r.cached and r.status == "COMPLETED")
+        executed_runs = sum(1 for r in ordered_results if not r.cached)
         failed_runs = sum(1 for r in ordered_results if r.status in ("FAILED", "PARTIAL"))
-        completed_or_cached = sum(1 for r in ordered_results if r.status == "COMPLETED")
 
-        if failed_runs == 0:
+        if all(r.status == "COMPLETED" for r in ordered_results):
             status = "COMPLETED"
-        elif completed_or_cached == 0:
+        elif all(r.status == "FAILED" for r in ordered_results):
             status = "FAILED"
         else:
             status = "PARTIAL"

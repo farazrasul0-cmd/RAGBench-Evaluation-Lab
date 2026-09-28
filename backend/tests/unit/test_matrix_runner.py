@@ -735,9 +735,11 @@ async def test_matrix_runner_partial_failure_isolation(
     # 1 of 2 queries failed in the single configuration -> SingleRunResult is PARTIAL
     assert result.total_configurations == 1
     assert result.results[0].status == "PARTIAL"
-    assert result.status == "FAILED"  # all attempted executions had failures
+    assert (
+        result.status == "PARTIAL"
+    )  # A single configuration with PARTIAL is PARTIAL, not FAILED (Correction B)
     assert result.failed_runs == 1
-    assert result.executed_runs == 0
+    assert result.executed_runs == 1  # Executed attempt was made (Correction A)
 
 
 @pytest.mark.anyio
@@ -805,7 +807,7 @@ async def test_matrix_runner_successful_survives_failure(
 
     assert result.total_configurations == 2
     assert result.status == "PARTIAL"  # 1 succeeded, 1 failed
-    assert result.executed_runs == 1
+    assert result.executed_runs == 2  # Both configs were attempted executions (Correction A)
     assert result.failed_runs == 1
     assert result.results[0].status == "COMPLETED"
     assert result.results[1].status == "FAILED"
@@ -992,3 +994,217 @@ async def test_matrix_runner_single_session_fallback(
         assert result.total_configurations == 1
         assert result.executed_runs == 1
         assert result.results[0].status == "COMPLETED"
+
+
+@pytest.mark.anyio
+async def test_matrix_runner_status_classification_combinations(
+    session_factory: async_sessionmaker[AsyncSession],
+) -> None:
+    """Verify matrix status classification and execution accounting across 6 combinations:
+    1. 1 COMPLETED + 1 FAILED -> PARTIAL
+    2. 1 COMPLETED + 1 PARTIAL -> PARTIAL
+    3. 2 FAILED -> FAILED
+    4. 2 PARTIAL -> PARTIAL
+    5. 2 COMPLETED -> COMPLETED
+    6. 1 CACHE HIT + 1 COMPLETED -> COMPLETED
+    """
+    chunks = create_sample_chunks()
+
+    async with session_factory() as session:
+        dataset_repo = DatasetRepository(session)
+        exp_repo = ExperimentRepository(session)
+
+        ds = await dataset_repo.create_dataset(name="Combo DS")
+        ver = await dataset_repo.create_version(
+            dataset_id=ds.id, version_number=1, content_hash="hash-combo-v1"
+        )
+        await populate_dataset_version(dataset_repo, ver.id, chunks)
+
+        exp = await exp_repo.create_experiment(
+            name="Combo Exp",
+            dataset_version_id=ver.id,
+            configuration={"combo": True},
+            configuration_hash="hash-combo-cfg",
+        )
+        await session.commit()
+        exp_id = exp.id
+        ds_id = ds.id
+        ver_id = ver.id
+
+    queries = [
+        EvaluationQuery(
+            query_id="q-1",
+            query_text="photosynthesis",
+            ground_truth_chunks=["chunk-photo-001"],
+        ),
+        EvaluationQuery(
+            query_id="q-2",
+            query_text="mitochondria",
+            ground_truth_chunks=["chunk-resp-002"],
+        ),
+    ]
+
+    exp_config_2 = ExperimentConfig(
+        dataset=DatasetConfig(dataset_id=ds_id, dataset_version_id=ver_id),
+        parameters=SweepParameters(
+            retrieval={"mode": "bm25", "top_k": [1, 2]},
+            evaluation={"metrics": ["recall"], "k_values": [1]},
+        ),
+    )
+
+    class ConfigurableStatusExecutor(SingleRunExecutor):
+        def __init__(self, status_map: dict[int, str]) -> None:
+            super().__init__()
+            self.status_map = status_map
+
+        async def execute(self, *args: Any, **kwargs: Any) -> SingleRunResult:
+            pipeline_cfg: PipelineConfig = kwargs["pipeline_config"]
+            target_status = self.status_map.get(pipeline_cfg.retrieval.top_k, "COMPLETED")
+            total_q = len(kwargs.get("queries", []))
+            comp_q = (
+                total_q
+                if target_status == "COMPLETED"
+                else (1 if target_status == "PARTIAL" else 0)
+            )
+            fail_q = total_q - comp_q
+            return SingleRunResult(
+                experiment_run_id=f"run-{pipeline_cfg.retrieval.top_k}",
+                experiment_id=kwargs["experiment_id"],
+                pipeline_config_hash=pipeline_cfg.compute_configuration_hash(),
+                cache_hash=f"cache-{pipeline_cfg.retrieval.top_k}",
+                status=target_status,
+                total_queries=total_q,
+                completed_queries=comp_q,
+                failed_queries=fail_q,
+                mean_metrics={"recall@1": 1.0} if comp_q > 0 else {},
+                duration_ms=10.0,
+                cached=False,
+            )
+
+    # 1. 1 COMPLETED + 1 FAILED -> PARTIAL
+    runner_1 = MatrixRunner(
+        single_run_executor=ConfigurableStatusExecutor({1: "COMPLETED", 2: "FAILED"})
+    )
+    res_1 = await runner_1.execute_matrix(
+        experiment_id=exp_id,
+        experiment_config=exp_config_2,
+        queries=queries,
+        corpus_chunks=chunks,
+        session_factory=session_factory,
+        bypass_cache=True,
+    )
+    assert res_1.status == "PARTIAL"
+    assert res_1.total_configurations == 2
+    assert res_1.executed_runs == 2
+    assert res_1.cached_runs == 0
+    assert res_1.failed_runs == 1
+
+    # 2. 1 COMPLETED + 1 PARTIAL -> PARTIAL
+    runner_2 = MatrixRunner(
+        single_run_executor=ConfigurableStatusExecutor({1: "COMPLETED", 2: "PARTIAL"})
+    )
+    res_2 = await runner_2.execute_matrix(
+        experiment_id=exp_id,
+        experiment_config=exp_config_2,
+        queries=queries,
+        corpus_chunks=chunks,
+        session_factory=session_factory,
+        bypass_cache=True,
+    )
+    assert res_2.status == "PARTIAL"
+    assert res_2.total_configurations == 2
+    assert res_2.executed_runs == 2
+    assert res_2.cached_runs == 0
+    assert res_2.failed_runs == 1
+
+    # 3. 2 FAILED -> FAILED
+    runner_3 = MatrixRunner(
+        single_run_executor=ConfigurableStatusExecutor({1: "FAILED", 2: "FAILED"})
+    )
+    res_3 = await runner_3.execute_matrix(
+        experiment_id=exp_id,
+        experiment_config=exp_config_2,
+        queries=queries,
+        corpus_chunks=chunks,
+        session_factory=session_factory,
+        bypass_cache=True,
+    )
+    assert res_3.status == "FAILED"
+    assert res_3.total_configurations == 2
+    assert res_3.executed_runs == 2
+    assert res_3.cached_runs == 0
+    assert res_3.failed_runs == 2
+
+    # 4. 2 PARTIAL -> PARTIAL
+    runner_4 = MatrixRunner(
+        single_run_executor=ConfigurableStatusExecutor({1: "PARTIAL", 2: "PARTIAL"})
+    )
+    res_4 = await runner_4.execute_matrix(
+        experiment_id=exp_id,
+        experiment_config=exp_config_2,
+        queries=queries,
+        corpus_chunks=chunks,
+        session_factory=session_factory,
+        bypass_cache=True,
+    )
+    assert res_4.status == "PARTIAL"
+    assert res_4.total_configurations == 2
+    assert res_4.executed_runs == 2
+    assert res_4.cached_runs == 0
+    assert res_4.failed_runs == 2
+
+    # 5. 2 COMPLETED -> COMPLETED
+    runner_5 = MatrixRunner(
+        single_run_executor=ConfigurableStatusExecutor({1: "COMPLETED", 2: "COMPLETED"})
+    )
+    res_5 = await runner_5.execute_matrix(
+        experiment_id=exp_id,
+        experiment_config=exp_config_2,
+        queries=queries,
+        corpus_chunks=chunks,
+        session_factory=session_factory,
+        bypass_cache=True,
+    )
+    assert res_5.status == "COMPLETED"
+    assert res_5.total_configurations == 2
+    assert res_5.executed_runs == 2
+    assert res_5.cached_runs == 0
+    assert res_5.failed_runs == 0
+
+    # 6. 1 CACHE HIT + 1 COMPLETED -> COMPLETED
+    # Pre-seed run for top_k=1
+    cfg_single = ExperimentConfig(
+        dataset=DatasetConfig(dataset_id=ds_id, dataset_version_id=ver_id),
+        parameters=SweepParameters(
+            retrieval={"mode": "bm25", "top_k": 1},
+            evaluation={"metrics": ["recall"], "k_values": [1]},
+        ),
+    )
+    normal_runner = MatrixRunner()
+    seed_res = await normal_runner.execute_matrix(
+        experiment_id=exp_id,
+        experiment_config=cfg_single,
+        queries=queries,
+        corpus_chunks=chunks,
+        session_factory=session_factory,
+        bypass_cache=False,
+        llm_client=MockLLMClient(),
+    )
+    assert seed_res.executed_runs == 1
+    assert seed_res.results[0].status == "COMPLETED"
+
+    # Now execute sweep top_k=[1, 2] with bypass_cache=False
+    res_6 = await normal_runner.execute_matrix(
+        experiment_id=exp_id,
+        experiment_config=exp_config_2,
+        queries=queries,
+        corpus_chunks=chunks,
+        session_factory=session_factory,
+        bypass_cache=False,
+        llm_client=MockLLMClient(),
+    )
+    assert res_6.status == "COMPLETED"
+    assert res_6.total_configurations == 2
+    assert res_6.cached_runs == 1  # top_k=1 hit cache
+    assert res_6.executed_runs == 1  # top_k=2 executed
+    assert res_6.failed_runs == 0
