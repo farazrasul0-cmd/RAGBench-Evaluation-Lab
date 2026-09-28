@@ -79,9 +79,11 @@ class SingleRunExecutor:
         if not experiment:
             raise ValueError(f"Experiment '{experiment_id}' not found")
 
-        dataset_version = await dataset_repo.get_version(experiment.dataset_version_id)
+        exp_id = str(experiment.id)
+        dataset_ver_id = str(experiment.dataset_version_id)
+        dataset_version = await dataset_repo.get_version(dataset_ver_id)
         if not dataset_version:
-            raise ValueError(f"DatasetVersion '{experiment.dataset_version_id}' not found")
+            raise ValueError(f"DatasetVersion '{dataset_ver_id}' not found")
 
         # 2. Compute canonical hashes & Cache Identity
         pipeline_config_hash = pipeline_config.compute_configuration_hash()
@@ -93,7 +95,7 @@ class SingleRunExecutor:
 
         # 3. Create ExperimentRun record in RUNNING status and commit run initialization
         run = await exp_repo.create_run(
-            experiment_id=experiment.id,
+            experiment_id=exp_id,
             pipeline_config_hash=pipeline_config_hash,
             cache_key=cache_id.cache_key,
             cache_hash=cache_id.cache_hash,
@@ -101,6 +103,7 @@ class SingleRunExecutor:
             random_seed=random_seed,
             git_commit=git_commit,
         )
+        run_id = str(run.id)
         await session.commit()
 
         # 4. Instantiate and wire Phase A-E pipeline components
@@ -381,7 +384,7 @@ class SingleRunExecutor:
                 # 5g. Record query trace in savepoint, then commit query transaction
                 async with session.begin_nested():
                     await trace_repo.record_query_trace(
-                        experiment_run_id=run.id,
+                        experiment_run_id=run_id,
                         query_id=q.query_id,
                         original_query=q.query_text,
                         expected_answer=q.expected_answer,
@@ -406,7 +409,7 @@ class SingleRunExecutor:
                 try:
                     async with session.begin_nested():
                         await trace_repo.record_query_trace(
-                            experiment_run_id=run.id,
+                            experiment_run_id=run_id,
                             query_id=q.query_id,
                             original_query=q.query_text,
                             expected_answer=q.expected_answer,
@@ -453,7 +456,7 @@ class SingleRunExecutor:
             mean_metrics_map[m_name] = mean_v
 
         if summaries_data:
-            await exp_repo.add_metric_summaries(run.id, summaries_data)
+            await exp_repo.add_metric_summaries(run_id, summaries_data)
 
         # 7. Finalize ExperimentRun status
         if failed_queries == 0:
@@ -467,7 +470,7 @@ class SingleRunExecutor:
             error_msg = f"{failed_queries} of {len(queries)} queries failed"
 
         await exp_repo.complete_run(
-            run_id=run.id,
+            run_id=run_id,
             summary_metrics=mean_metrics_map,
             status=final_status,
             error=error_msg,
@@ -478,8 +481,8 @@ class SingleRunExecutor:
         duration_ms = (time.perf_counter() - run_start_time) * 1000.0
 
         return SingleRunResult(
-            experiment_run_id=run.id,
-            experiment_id=experiment.id,
+            experiment_run_id=run_id,
+            experiment_id=exp_id,
             pipeline_config_hash=pipeline_config_hash,
             cache_hash=cache_id.cache_hash,
             status=final_status,

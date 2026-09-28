@@ -18,7 +18,7 @@ DEFAULT_SQLITE_URL = "sqlite+aiosqlite:///./ragbench.db"
 
 
 def configure_sqlite_pragmas(engine: AsyncEngine) -> None:
-    """Register connection hooks to enforce WAL mode and foreign keys on SQLite."""
+    """Register connection hooks for WAL mode, busy_timeout, foreign keys, and immediate tx."""
 
     @event.listens_for(engine.sync_engine, "connect")
     def _set_sqlite_pragma(dbapi_connection: Any, connection_record: Any) -> None:
@@ -26,16 +26,24 @@ def configure_sqlite_pragmas(engine: AsyncEngine) -> None:
         cursor.execute("PRAGMA journal_mode=WAL")
         cursor.execute("PRAGMA foreign_keys=ON")
         cursor.execute("PRAGMA synchronous=NORMAL")
+        cursor.execute("PRAGMA busy_timeout=60000")
         cursor.close()
+        dbapi_connection.isolation_level = None
+
+    @event.listens_for(engine.sync_engine, "begin")
+    def _do_begin_immediate(conn: Any) -> None:
+        conn.exec_driver_sql("BEGIN IMMEDIATE")
 
 
 def get_async_engine(database_url: str | None = None) -> AsyncEngine:
     """Create configured SQLAlchemy AsyncEngine with SQLite WAL support."""
     url = database_url or DEFAULT_SQLITE_URL
+    connect_args = {"timeout": 60.0} if "sqlite" in url else {}
     engine = create_async_engine(
         url,
         echo=False,
         future=True,
+        connect_args=connect_args,
     )
 
     if "sqlite" in url:

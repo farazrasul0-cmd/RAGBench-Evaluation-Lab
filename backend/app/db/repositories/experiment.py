@@ -84,17 +84,21 @@ class ExperimentRepository:
         return result.scalar_one_or_none()
 
     async def get_run_by_cache_hash(self, cache_hash: str) -> ExperimentRun | None:
-        """Fetch completed ExperimentRun by dataset-version-aware cache hash."""
+        """Fetch completed ExperimentRun by dataset-version-aware cache hash.
+
+        Deterministically selects the most recent completed run if multiple runs exist.
+        """
         stmt = (
             select(ExperimentRun)
             .where(
                 ExperimentRun.cache_hash == cache_hash,
                 ExperimentRun.status == "COMPLETED",
             )
+            .order_by(ExperimentRun.completed_at.desc(), ExperimentRun.id.desc())
             .options(selectinload(ExperimentRun.metric_summaries))
         )
         result = await self.session.execute(stmt)
-        return result.scalar_one_or_none()
+        return result.scalars().first()
 
     async def complete_run(
         self,

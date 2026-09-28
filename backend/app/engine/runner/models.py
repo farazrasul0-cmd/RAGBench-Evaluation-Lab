@@ -1,4 +1,4 @@
-"""Data models for single-run pipeline execution."""
+"""Data models for single-run and matrix pipeline execution."""
 
 from typing import Any
 
@@ -37,4 +37,18 @@ class SingleRunResult(BaseModel):
     completed_queries: int
     failed_queries: int
     mean_metrics: dict[str, float] = Field(default_factory=dict)
+    duration_ms: float = 0.0
+    cached: bool = False
+
+
+class MatrixRunResult(BaseModel):
+    """Aggregate execution summary across an entire combinatorial experiment matrix."""
+
+    experiment_id: str
+    total_configurations: int
+    executed_runs: int
+    cached_runs: int
+    failed_runs: int
+    status: str
+    results: list[SingleRunResult] = Field(default_factory=list)
     duration_ms: float = 0.0
