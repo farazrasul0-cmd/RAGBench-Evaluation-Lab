@@ -13,11 +13,12 @@ from app.db.repositories.dataset import DatasetRepository
 from app.db.repositories.experiment import ExperimentRepository
 from app.db.repositories.query_trace import QueryTraceRepository
 from app.db.session import get_async_engine, get_session_factory, init_db
+from app.engine.orchestrator.cartesian import CartesianExpander
 from app.engine.orchestrator.dry_run import DryRunPlanner
 from app.engine.runner.matrix import MatrixRunner
 from app.engine.runner.models import EvaluationQuery, MatrixRunResult
 from app.schemas.chunk import DocumentChunk
-from app.schemas.experiment import ExperimentConfig
+from app.schemas.experiment import ExperimentConfig, PipelineConfig
 
 
 @click.group(name="experiment")
@@ -29,59 +30,85 @@ def experiment_group() -> None:
 @click.argument("config_path", type=click.Path(exists=True, dir_okay=False, path_type=Path))
 @click.option("--db-url", default=None, help="Database connection URL override.")
 def plan_command(config_path: Path, db_url: str | None) -> None:
-    """Dry-run preview of combinatorial sweeps, component diffs, and cache hits."""
+    """Dry-run preview of sweeps, diffs, and cache hits without DB writes."""
     try:
         config = ExperimentConfig.from_yaml(config_path)
     except Exception as exc:
         click.echo(f"Error loading configuration: {exc}", err=True)
         sys.exit(1)
 
-    async def _plan() -> int:
-        engine = get_async_engine(db_url)
-        await init_db(engine)
-        session_factory = get_session_factory(engine)
+    # 1. Purely in-memory dry-run plan generation
+    planner = DryRunPlanner()
+    plan_res = planner.plan(config)
 
-        planner = DryRunPlanner()
-        plan_res = planner.plan(config)
+    click.echo(f"\nExperiment Plan: {config.metadata.name}")
+    click.echo(f"Total Combinatorial Configurations: {plan_res.total_planned_pipelines}\n")
 
-        click.echo(f"\nExperiment Plan: {config.metadata.name}")
-        click.echo(f"Total Combinatorial Configurations: {plan_res.total_planned_pipelines}\n")
+    # 2. Check if DB is available for cache inspection WITHOUT mutating or initializing schema
+    can_check_cache = True
+    if db_url and db_url.startswith("sqlite"):
+        db_path_str = db_url.split("///")[-1]
+        if db_path_str != ":memory:" and not Path(db_path_str).exists():
+            can_check_cache = False
 
-        headers = ["#", "Config Hash", "Cache Hash", "Cache Status", "Diff vs Baseline"]
-        rows: list[list[Any]] = []
+    cached_hashes: set[str] = set()
 
-        async with session_factory() as session:
-            exp_repo = ExperimentRepository(session)
-            for idx, pipe in enumerate(plan_res.planned_runs, start=1):
-                cache_status = "MISS"
-                diff_summary = "Baseline"
-                # Check DB cache
-                cached_run = await exp_repo.get_run_by_cache_hash(pipe.cache_hash)
-                if cached_run is not None:
-                    cache_status = "HIT"
+    if can_check_cache:
 
-                if pipe.parameter_diff:
-                    diff_parts = []
-                    for comp, fields in pipe.parameter_diff.items():
-                        diff_parts.append(f"{comp}: {fields}")
-                    diff_summary = "; ".join(diff_parts)
+        async def _check_cache() -> None:
+            nonlocal cached_hashes
+            try:
+                engine = get_async_engine(db_url)
+                session_factory = get_session_factory(engine)
+                async with session_factory() as session:
+                    exp_repo = ExperimentRepository(session)
+                    for pipe in plan_res.planned_runs:
+                        try:
+                            cached_run = await exp_repo.get_run_by_cache_hash(pipe.cache_hash)
+                            if cached_run is not None:
+                                cached_hashes.add(pipe.cache_hash)
+                        except Exception:
+                            # DB exists but table might not exist yet
+                            break
+                await engine.dispose()
+            except Exception:
+                pass
 
-                rows.append(
-                    [
-                        idx,
-                        pipe.pipeline_config_hash[:12],
-                        pipe.cache_hash[:12],
-                        cache_status,
-                        diff_summary,
-                    ]
-                )
+        import contextlib
 
-        click.echo(render_table(headers, rows, title="Planned Execution Matrix"))
-        await engine.dispose()
-        return 0
+        with contextlib.suppress(Exception):
+            asyncio.run(_check_cache())
 
-    code = asyncio.run(_plan())
-    sys.exit(code)
+    headers = ["#", "Config Hash", "Cache Hash", "Cache Status", "Diff vs Baseline"]
+    rows: list[list[Any]] = []
+
+    for idx, pipe in enumerate(plan_res.planned_runs, start=1):
+        if not can_check_cache:
+            cache_status = "UNKNOWN (no DB)"
+        elif pipe.cache_hash in cached_hashes:
+            cache_status = "HIT"
+        else:
+            cache_status = "MISS"
+
+        diff_summary = "Baseline"
+        if pipe.parameter_diff:
+            diff_parts = []
+            for comp, fields in pipe.parameter_diff.items():
+                diff_parts.append(f"{comp}: {fields}")
+            diff_summary = "; ".join(diff_parts)
+
+        rows.append(
+            [
+                idx,
+                pipe.pipeline_config_hash[:12],
+                pipe.cache_hash[:12],
+                cache_status,
+                diff_summary,
+            ]
+        )
+
+    click.echo(render_table(headers, rows, title="Planned Execution Matrix"))
+    sys.exit(0)
 
 
 @experiment_group.command(name="run")
@@ -137,24 +164,53 @@ def run_command(
             exp_repo = ExperimentRepository(session)
             dataset_repo = DatasetRepository(session)
 
-            # Resolve target dataset version
+            # Strict dataset version resolution — zero fallback to preserve immutable lineage
             ver_id = config.dataset.dataset_version_id
             ver = await dataset_repo.get_version(ver_id)
             if not ver:
-                # If not found by version ID, attempt to find latest by dataset_id or dataset_name
-                ds = await dataset_repo.get_dataset(config.dataset.dataset_id)
-                if not ds:
-                    ds = await dataset_repo.get_dataset_by_name(config.dataset.dataset_id)
-                if ds and ds.versions:
-                    ver = ds.versions[-1]
-                else:
+                click.echo(
+                    f"Error: Dataset version '{ver_id}' not found in database. "
+                    "Automatic fallback is disabled to preserve dataset-version immutability.",
+                    err=True,
+                )
+                await engine.dispose()
+                return 1
+
+            # Validate dataset ID alignment if specified
+            if config.dataset.dataset_id:
+                ds = await dataset_repo.get_dataset(ver.dataset_id)
+                if (
+                    ds
+                    and ds.id != config.dataset.dataset_id
+                    and ds.name != config.dataset.dataset_id
+                ):
                     click.echo(
-                        f"Error: Dataset version '{ver_id}' not found in database.", err=True
+                        f"Error: Dataset version '{ver_id}' belongs to '{ds.name}', "
+                        f"not requested dataset '{config.dataset.dataset_id}'.",
+                        err=True,
                     )
                     await engine.dispose()
                     return 1
 
-            # Fetch or create parent experiment
+            # Load benchmark evaluation queries from dataset version metadata — zero fabrication
+            queries: list[EvaluationQuery] = []
+            if (
+                ver.metadata_json
+                and "queries" in ver.metadata_json
+                and ver.metadata_json["queries"]
+            ):
+                for q_data in ver.metadata_json["queries"]:
+                    queries.append(EvaluationQuery(**q_data))
+            else:
+                click.echo(
+                    f"Error: Dataset version '{ver.id}' contains no benchmark evaluation queries. "
+                    "Ground truth queries must be provided during registration (--queries).",
+                    err=True,
+                )
+                await engine.dispose()
+                return 1
+
+            # Fetch or create parent experiment record
             exp = await exp_repo.create_experiment(
                 name=config.metadata.name,
                 dataset_version_id=ver.id,
@@ -183,21 +239,7 @@ def run_command(
                         )
                     )
 
-            # Formulate sample queries if none in dataset metadata
-            queries: list[EvaluationQuery] = []
-            if ver.metadata_json and "queries" in ver.metadata_json:
-                for q_data in ver.metadata_json["queries"]:
-                    queries.append(EvaluationQuery(**q_data))
-            elif corpus_chunks:
-                # Default query against first available chunk
-                queries.append(
-                    EvaluationQuery(
-                        query_id="q-default-1",
-                        query_text=corpus_chunks[0].content[:60],
-                        ground_truth_chunks=[corpus_chunks[0].chunk_id],
-                    )
-                )
-
+        # Execute matrix sweep via F5 MatrixRunner
         runner = MatrixRunner()
         matrix_result: MatrixRunResult = await runner.execute_matrix(
             experiment_id=exp_id,
@@ -271,8 +313,12 @@ def run_command(
 
 @experiment_group.command(name="show")
 @click.argument("run_id")
+@click.option("--query-id", "-q", default=None, help="Filter for a specific query ID.")
+@click.option(
+    "--full", is_flag=True, default=False, help="Display full untruncated answers and chunk text."
+)
 @click.option("--db-url", default=None, help="Database connection URL override.")
-def show_command(run_id: str, db_url: str | None) -> None:
+def show_command(run_id: str, query_id: str | None, full: bool, db_url: str | None) -> None:
     """Inspect the full query evidence trail for an experiment run (RQ3 auditability)."""
 
     async def _show() -> int:
@@ -292,7 +338,7 @@ def show_command(run_id: str, db_url: str | None) -> None:
             trails = await trace_repo.get_run_evidence_trails(run_id)
 
             click.echo(f"\nExperiment Run: {run.id}")
-            click.echo(f"Status: {run.status} | Cache Hash: {run.cache_hash}")
+            click.echo(f"Status: {run.status} | Cache Hash: {run.cache_hash[:16]}...")
             click.echo(f"Started: {run.started_at} | Completed: {run.completed_at}")
 
             # Summary Metrics Table
@@ -312,18 +358,79 @@ def show_command(run_id: str, db_url: str | None) -> None:
                 ]
                 click.echo(render_table(headers, rows, title="Aggregate Metric Summaries"))
 
-            # Evidence Trails Table
-            click.echo(f"\nTotal Query Evidence Trails: {len(trails)}")
-            for idx, trail in enumerate(trails, start=1):
-                click.echo(f"\n[{idx}] Query ID: {trail.query_id} (Status: {trail.status})")
+            # Filter trails if requested
+            selected_trails = trails
+            if query_id:
+                selected_trails = [t for t in trails if t.query_id == query_id]
+                if not selected_trails:
+                    click.echo(f"Query ID '{query_id}' not found in run traces.")
+
+            click.echo(f"\nQuery Evidence Trails ({len(selected_trails)} displayed):")
+            click.echo("=" * 80)
+
+            for idx, trail in enumerate(selected_trails, start=1):
+                header = (
+                    f"\n[{idx}] Query: {trail.query_id} ({trail.status}, {trail.latency_ms:.1f}ms)"
+                )
+                click.echo(header)
                 click.echo(f"    Original Query: {trail.original_query}")
-                click.echo(f"    Retrieved Chunks: {len(trail.retrieved_chunks)} chunks")
+
+                # Transformed Queries
+                if trail.transformed_queries:
+                    t_desc = [
+                        f"[{t.get('transformation_type', 'transform')}] {t.get('query_text', '')}"
+                        for t in trail.transformed_queries
+                    ]
+                    click.echo(f"    Transformations: {'; '.join(t_desc)}")
+
+                # Retrieved Chunks
+                if trail.retrieved_chunks:
+                    click.echo("    Retrieved Chunks:")
+                    for rc in trail.retrieved_chunks:
+                        r_type = rc.get("retriever_type", "retriever")
+                        r_line = (
+                            f"      Rank {rc.get('rank', 0)} | {rc.get('chunk_id', '')} | "
+                            f"Score: {rc.get('score', 0.0):.4f} ({r_type})"
+                        )
+                        click.echo(r_line)
+
+                # Reranked Chunks
+                if trail.reranked_chunks:
+                    click.echo("    Reranked Chunks:")
+                    for rk in trail.reranked_chunks:
+                        o_r = rk.get("original_rank", 0)
+                        n_r = rk.get("reranked_rank", 0)
+                        cid = rk.get("chunk_id", "")
+                        s1 = f"{rk.get('original_score', 0.0):.4f}"
+                        s2 = f"{rk.get('reranker_score', 0.0):.4f}"
+                        rk_line = f"      Orig {o_r} -> Rerank {n_r} | {cid} | Scores: {s1} -> {s2}"
+                        click.echo(rk_line)
+
+                # Context Packing
+                if trail.packed_context:
+                    p = trail.packed_context
+                    strat = p.get("ordering_strategy")
+                    c_cnt = len(p.get("chunk_ids", []))
+                    t_str = f"{p.get('token_count')}/{p.get('token_budget')}"
+                    click.echo(f"    Context: strategy={strat} | chunks={c_cnt} | tokens={t_str}")
+
+                # Generation
                 if trail.generation_result:
-                    ans_snippet = trail.generation_result.get("answer", "")[:80]
-                    click.echo(f"    Generated Answer: {ans_snippet}...")
+                    g = trail.generation_result
+                    ans = g.get("answer", "")
+                    if not full and len(ans) > 150:
+                        ans = ans[:150] + "..."
+                    gen_hdr = (
+                        f"    Generation: model={g.get('model')} | "
+                        f"latency={g.get('latency_ms', 0.0):.1f}ms | tokens={g.get('total_tokens')}"
+                    )
+                    click.echo(gen_hdr)
+                    click.echo(f"    Answer: {ans}")
+
+                # Metrics
                 if trail.metric_results:
-                    metrics_str = ", ".join(f"{k}={v:.4f}" for k, v in trail.metric_results.items())
-                    click.echo(f"    Metrics: {metrics_str}")
+                    m_parts = [f"{k}={v:.4f}" for k, v in trail.metric_results.items()]
+                    click.echo(f"    Metrics: {', '.join(m_parts)}")
 
         await engine.dispose()
         return 0
@@ -337,7 +444,7 @@ def show_command(run_id: str, db_url: str | None) -> None:
 @click.argument("run_id_2")
 @click.option("--db-url", default=None, help="Database connection URL override.")
 def compare_command(run_id_1: str, run_id_2: str, db_url: str | None) -> None:
-    """Side-by-side comparative analysis of two experiment runs."""
+    """Side-by-side comparative analysis of pipeline parameters and metrics for two runs."""
 
     async def _compare() -> int:
         engine = get_async_engine(db_url)
@@ -362,11 +469,72 @@ def compare_command(run_id_1: str, run_id_2: str, db_url: str | None) -> None:
             click.echo(f"Run 1: {r1.id} (status: {r1.status})")
             click.echo(f"Run 2: {r2.id} (status: {r2.status})\n")
 
+            # 1. Pipeline Parameter Differences
+            exp1 = await exp_repo.get_experiment(r1.experiment_id)
+            exp2 = await exp_repo.get_experiment(r2.experiment_id)
+
+            pipe_cfg_1: PipelineConfig | None = None
+            pipe_cfg_2: PipelineConfig | None = None
+
+            if exp1 and exp1.configuration:
+                try:
+                    c1 = ExperimentConfig(**exp1.configuration)
+                    for p in CartesianExpander.expand(c1):
+                        if p.compute_configuration_hash() == r1.pipeline_config_hash:
+                            pipe_cfg_1 = p
+                            break
+                except Exception:
+                    pass
+
+            if exp2 and exp2.configuration:
+                try:
+                    c2 = ExperimentConfig(**exp2.configuration)
+                    for p in CartesianExpander.expand(c2):
+                        if p.compute_configuration_hash() == r2.pipeline_config_hash:
+                            pipe_cfg_2 = p
+                            break
+                except Exception:
+                    pass
+
+            if pipe_cfg_1 and pipe_cfg_2:
+                param_rows: list[list[Any]] = []
+                d1 = pipe_cfg_1.model_dump()
+                d2 = pipe_cfg_2.model_dump()
+
+                for component in sorted(set(d1.keys()) | set(d2.keys())):
+                    sub1 = d1.get(component, {})
+                    sub2 = d2.get(component, {})
+                    if isinstance(sub1, dict) and isinstance(sub2, dict):
+                        for param in sorted(set(sub1.keys()) | set(sub2.keys())):
+                            val1 = sub1.get(param)
+                            val2 = sub2.get(param)
+                            if val1 != val2:
+                                param_rows.append([component, param, str(val1), str(val2)])
+
+                if param_rows:
+                    p_headers = [
+                        "Component",
+                        "Parameter",
+                        f"Run 1 ({r1.id[:8]})",
+                        f"Run 2 ({r2.id[:8]})",
+                    ]
+                    click.echo(
+                        render_table(p_headers, param_rows, title="Pipeline Parameter Differences")
+                    )
+                else:
+                    click.echo("Pipeline Configurations: Identical parameters.\n")
+
+            # 2. Metric Summaries Comparison Table
             metrics_1 = {s.metric_name: s.mean for s in r1.metric_summaries}
             metrics_2 = {s.metric_name: s.mean for s in r2.metric_summaries}
             all_metric_names = sorted(set(metrics_1.keys()) | set(metrics_2.keys()))
 
-            headers = ["Metric", f"Run 1 ({r1.id[:8]})", f"Run 2 ({r2.id[:8]})", "Delta (Δ)"]
+            headers = [
+                "Metric",
+                f"Run 1 ({r1.id[:8]})",
+                f"Run 2 ({r2.id[:8]})",
+                "Delta (Run2 - Run1)",
+            ]
             rows: list[list[Any]] = []
 
             for m in all_metric_names:
@@ -378,6 +546,23 @@ def compare_command(run_id_1: str, run_id_2: str, db_url: str | None) -> None:
                 rows.append([m, str_v1, str_v2, str_delta])
 
             click.echo(render_table(headers, rows, title="Metric Comparison Table"))
+
+            # 3. Execution Latency Comparison
+            dur_1 = (
+                (r1.completed_at - r1.started_at).total_seconds() * 1000.0
+                if (r1.completed_at and r1.started_at)
+                else None
+            )
+            dur_2 = (
+                (r2.completed_at - r2.started_at).total_seconds() * 1000.0
+                if (r2.completed_at and r2.started_at)
+                else None
+            )
+            click.echo(
+                f"Duration Run 1: {dur_1:.1f}ms | Duration Run 2: {dur_2:.1f}ms"
+                if (dur_1 is not None and dur_2 is not None)
+                else ""
+            )
 
         await engine.dispose()
         return 0
