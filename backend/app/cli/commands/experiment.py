@@ -11,6 +11,7 @@ from typing import Any
 import click
 
 from app.cli.formatting import format_delta, render_table
+from app.db.repositories.benchmark import BenchmarkRepository
 from app.db.repositories.dataset import DatasetRepository
 from app.db.repositories.experiment import ExperimentRepository
 from app.db.repositories.query_trace import QueryTraceRepository
@@ -23,10 +24,12 @@ from app.engine.analysis.export import (
     escape_latex,
 )
 from app.engine.analysis.statistics import StatisticalComparator
+from app.engine.benchmark.resolver import GroundTruthChunkResolver
 from app.engine.orchestrator.cartesian import CartesianExpander
 from app.engine.orchestrator.dry_run import DryRunPlanner
 from app.engine.runner.matrix import MatrixRunner
 from app.engine.runner.models import EvaluationQuery, MatrixRunResult
+from app.schemas.benchmark import BenchmarkQuerySet
 from app.schemas.chunk import DocumentChunk
 from app.schemas.experiment import ExperimentConfig, PipelineConfig
 
@@ -202,36 +205,7 @@ def run_command(
                     await engine.dispose()
                     return 1
 
-            # Load benchmark evaluation queries from dataset version metadata — zero fabrication
-            queries: list[EvaluationQuery] = []
-            if (
-                ver.metadata_json
-                and "queries" in ver.metadata_json
-                and ver.metadata_json["queries"]
-            ):
-                for q_data in ver.metadata_json["queries"]:
-                    queries.append(EvaluationQuery(**q_data))
-            else:
-                click.echo(
-                    f"Error: Dataset version '{ver.id}' contains no benchmark evaluation queries. "
-                    "Ground truth queries must be provided during registration (--queries).",
-                    err=True,
-                )
-                await engine.dispose()
-                return 1
-
-            # Fetch or create parent experiment record
-            exp = await exp_repo.create_experiment(
-                name=config.metadata.name,
-                dataset_version_id=ver.id,
-                description=config.metadata.description,
-                configuration=config.model_dump(),
-                configuration_hash=config.compute_configuration_hash(),
-            )
-            await session.commit()
-            exp_id = exp.id
-
-            # Load corpus chunks from dataset documents
+            # Load corpus chunks from dataset documents first so benchmark resolver can map passages
             docs = await dataset_repo.get_documents(ver.id)
             corpus_chunks: list[DocumentChunk] = []
             for d in docs:
@@ -248,6 +222,50 @@ def run_command(
                             chunk_id=c.id,
                         )
                     )
+
+            # Resolve benchmark queries dynamically if benchmark_hash exists, else fallback
+            queries: list[EvaluationQuery] = []
+            benchmark_hash: str | None = None
+            if ver.metadata_json and "benchmark_hash" in ver.metadata_json:
+                benchmark_hash = ver.metadata_json["benchmark_hash"]
+                bench_repo = BenchmarkRepository(session)
+                b_ver = await bench_repo.get_benchmark_by_hash(benchmark_hash)
+                if b_ver:
+                    b_set = BenchmarkQuerySet(**b_ver.benchmark_data)
+                    resolver = GroundTruthChunkResolver(
+                        allow_unresolved_passages=b_ver.allow_unresolved_passages
+                    )
+                    queries = resolver.resolve_benchmark(benchmark=b_set, chunks=corpus_chunks)
+
+            if not queries:
+                if (
+                    ver.metadata_json
+                    and "queries" in ver.metadata_json
+                    and ver.metadata_json["queries"]
+                ):
+                    for q_data in ver.metadata_json["queries"]:
+                        queries.append(EvaluationQuery(**q_data))
+                else:
+                    click.echo(
+                        f"Error: Dataset version '{ver.id}' "
+                        "contains no benchmark evaluation queries. "
+                        "Ground truth queries must be provided (--queries or --eval-qa).",
+                        err=True,
+                    )
+                    await engine.dispose()
+                    return 1
+
+            # Fetch or create parent experiment record with benchmark_hash
+            exp = await exp_repo.create_experiment(
+                name=config.metadata.name,
+                dataset_version_id=ver.id,
+                description=config.metadata.description,
+                configuration=config.model_dump(),
+                configuration_hash=config.compute_configuration_hash(),
+                benchmark_hash=benchmark_hash,
+            )
+            await session.commit()
+            exp_id = exp.id
 
         # Execute matrix sweep via F5 MatrixRunner
         runner = MatrixRunner()
@@ -621,13 +639,21 @@ def compare_command(
                     metrics_by_query_a: dict[str, dict[str, float]] = {}
                     for t in trails_1:
                         m_map = dict(t.metric_results)
-                        m_map["latency_ms"] = t.latency_ms
+                        m_map["total_latency_ms"] = t.latency_ms
+                        if t.generation_result and "latency_ms" in t.generation_result:
+                            m_map["generation_latency_ms"] = float(
+                                t.generation_result["latency_ms"]
+                            )
                         metrics_by_query_a[t.query_id] = m_map
 
                     metrics_by_query_b: dict[str, dict[str, float]] = {}
                     for t in trails_2:
                         m_map = dict(t.metric_results)
-                        m_map["latency_ms"] = t.latency_ms
+                        m_map["total_latency_ms"] = t.latency_ms
+                        if t.generation_result and "latency_ms" in t.generation_result:
+                            m_map["generation_latency_ms"] = float(
+                                t.generation_result["latency_ms"]
+                            )
                         metrics_by_query_b[t.query_id] = m_map
 
                     try:

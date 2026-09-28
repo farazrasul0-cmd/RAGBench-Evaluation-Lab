@@ -22,6 +22,7 @@ class ExperimentRepository:
         dataset_version_id: str,
         configuration: dict[str, Any],
         configuration_hash: str,
+        benchmark_hash: str | None = None,
         description: str | None = None,
         created_by: str | None = None,
     ) -> Experiment:
@@ -32,6 +33,7 @@ class ExperimentRepository:
             dataset_version_id=dataset_version_id,
             configuration=configuration,
             configuration_hash=configuration_hash,
+            benchmark_hash=benchmark_hash,
             created_by=created_by,
         )
         self.session.add(experiment)
@@ -54,6 +56,7 @@ class ExperimentRepository:
         pipeline_config_hash: str,
         cache_key: str,
         cache_hash: str,
+        benchmark_hash: str | None = None,
         environment: str = "local",
         random_seed: int = 42,
         git_commit: str | None = None,
@@ -64,6 +67,7 @@ class ExperimentRepository:
             pipeline_config_hash=pipeline_config_hash,
             cache_key=cache_key,
             cache_hash=cache_hash,
+            benchmark_hash=benchmark_hash,
             environment=environment,
             random_seed=random_seed,
             git_commit=git_commit,
@@ -78,7 +82,10 @@ class ExperimentRepository:
         stmt = (
             select(ExperimentRun)
             .where(ExperimentRun.id == run_id)
-            .options(selectinload(ExperimentRun.metric_summaries))
+            .options(
+                selectinload(ExperimentRun.metric_summaries),
+                selectinload(ExperimentRun.experiment).selectinload(Experiment.dataset_version),
+            )
         )
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()

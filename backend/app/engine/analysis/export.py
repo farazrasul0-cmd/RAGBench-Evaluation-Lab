@@ -43,6 +43,7 @@ class AcademicLatexExporter:
         report: MetricSignificanceReport,
         caption: str = "Empirical Comparison and Statistical Significance Analysis",
         label: str = "tab:ragbench_comparison",
+        bold_maximum: bool = False,
     ) -> str:
         """Render publication-ready LaTeX table with booktabs typography and statistical bounds."""
         lines: list[str] = [
@@ -65,13 +66,14 @@ class AcademicLatexExporter:
             m1_val = res.mean_a
             m2_val = res.mean_b
 
-            str_m1 = f"{m1_val:.4f} \\pm {res.std_difference:.4f}"
-            str_m2 = f"{m2_val:.4f} \\pm {res.std_difference:.4f}"
+            str_m1 = f"{m1_val:.4f}"
+            str_m2 = f"{m2_val:.4f}"
 
-            if m2_val > m1_val:
-                str_m2 = f"\\textbf{{{m2_val:.4f}}}"
-            elif m1_val > m2_val:
-                str_m1 = f"\\textbf{{{m1_val:.4f}}}"
+            if bold_maximum:
+                if m2_val > m1_val:
+                    str_m2 = f"\\textbf{{{m2_val:.4f}}}"
+                elif m1_val > m2_val:
+                    str_m1 = f"\\textbf{{{m1_val:.4f}}}"
 
             sign = "+" if res.mean_difference >= 0 else ""
             str_delta = f"{sign}{res.mean_difference:.4f}"
@@ -106,11 +108,17 @@ class AcademicLatexExporter:
                 f"\\label{{{label}}}",
                 (
                     r"\begin{flushleft}\footnotesize "
-                    r"\textit{Note:} Bold numbers denote observed sample maximums. "
-                    r"Statistically significant paired differences under Holm--Bonferroni "
-                    r"correction "
-                    r"are denoted with $^{*}(p<0.05)$, $^{**}(p<0.01)$, $^{***}(p<0.001)$."
-                    r"\end{flushleft}"
+                    + (
+                        r"\textit{Note:} Bold numbers denote observed sample maximums. "
+                        if bold_maximum
+                        else r"\textit{Note:} Values report sample means. "
+                    )
+                    + (
+                        r"Statistically significant paired differences under Holm--Bonferroni "
+                        r"correction are denoted with "
+                        r"$^{*}(p<0.05)$, $^{**}(p<0.01)$, $^{***}(p<0.001)$."
+                    )
+                    + r"\end{flushleft}"
                 ),
                 r"\end{table*}",
             ]

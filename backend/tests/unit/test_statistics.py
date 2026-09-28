@@ -269,3 +269,149 @@ def test_latency_warmup_exclusion() -> None:
     # Non-latency metrics (recall@5) retain all 5 queries
     recall_res = report.metrics["recall@5"]
     assert recall_res.alignment.n_paired == 5
+
+
+def test_scipy_ttest_rel_oracle() -> None:
+    """Cross-validate paired t-test statistics and two-tailed p-values against SciPy oracle."""
+    from scipy import stats
+
+    exp = MagicMock(spec=Experiment, dataset_version_id="ver-scipy")
+    run_a = MagicMock(spec=ExperimentRun, id="run-a", experiment=exp)
+    run_b = MagicMock(spec=ExperimentRun, id="run-b", experiment=exp)
+
+    # Test cases: varying sample sizes and distributions
+    test_cases = [
+        # N=5 small sample
+        ([0.45, 0.72, 0.61, 0.88, 0.33], [0.55, 0.90, 0.65, 0.78, 0.52]),
+        # N=12 medium sample with bidirectional differences
+        (
+            [0.10, 0.25, 0.35, 0.50, 0.65, 0.70, 0.80, 0.85, 0.90, 0.40, 0.55, 0.75],
+            [0.15, 0.20, 0.40, 0.60, 0.60, 0.80, 0.75, 0.95, 0.92, 0.50, 0.60, 0.85],
+        ),
+        # N=30 large sample
+        (
+            [0.3 + 0.02 * i for i in range(30)],
+            [0.35 + 0.018 * i + (0.05 if i % 2 == 0 else -0.02) for i in range(30)],
+        ),
+    ]
+
+    for a_vals, b_vals in test_cases:
+        n = len(a_vals)
+        scores_a = {f"q{i:03d}": a_vals[i] for i in range(n)}
+        scores_b = {f"q{i:03d}": b_vals[i] for i in range(n)}
+
+        res = StatisticalComparator.compare_single_metric(
+            run_a=run_a,
+            run_b=run_b,
+            metric_name="recall@5",
+            scores_a_by_query=scores_a,
+            scores_b_by_query=scores_b,
+        )
+
+        scipy_res = stats.ttest_rel(b_vals, a_vals)
+        assert res.t_statistic is not None
+        assert abs(res.t_statistic - scipy_res.statistic) < 1e-6
+        assert res.raw_p_value is not None
+        assert abs(res.raw_p_value - scipy_res.pvalue) < 1e-6
+
+
+def test_scipy_wilcoxon_oracle() -> None:
+    """Cross-validate Wilcoxon signed-rank test against SciPy oracle."""
+    from scipy import stats
+
+    # 1. Exact regime (N=10 <= 20) with no ties
+    diffs_exact = [0.12, -0.05, 0.22, 0.31, -0.15, 0.08, 0.19, -0.27, 0.44, 0.03]
+    stat_exact, p_exact, nz_exact, z_exact, method_exact = wilcoxon_signed_rank_test(diffs_exact)
+    scipy_exact = stats.wilcoxon(diffs_exact, method="exact")
+    assert method_exact == "exact"
+    assert stat_exact == scipy_exact.statistic
+    assert abs(p_exact - scipy_exact.pvalue) < 1e-6
+
+    # 2. Asymptotic regime (N=25 > 20) with continuity correction
+    diffs_asymp = [float(i) * 0.05 * (-1 if i % 3 == 0 else 1) for i in range(1, 26)]
+    stat_asymp, p_asymp, nz_asymp, z_asymp, method_asymp = wilcoxon_signed_rank_test(diffs_asymp)
+    scipy_asymp = stats.wilcoxon(diffs_asymp, method="approx", correction=True)
+    assert method_asymp == "asymptotic"
+    assert stat_asymp == scipy_asymp.statistic
+    assert abs(p_asymp - scipy_asymp.pvalue) < 1e-6
+
+
+def test_scipy_student_t_critical_value_oracle() -> None:
+    """Cross-validate Student's t critical values against SciPy t.ppf oracle."""
+    from scipy import stats
+
+    for df in [1, 2, 5, 10, 20, 30, 50, 100, 500]:
+        ours = student_t_critical_value(df, alpha=0.05)
+        scipy_val = float(stats.t.ppf(0.975, df))
+        assert abs(ours - scipy_val) < 1e-5
+
+
+def test_statistical_edge_cases_single_observation() -> None:
+    """N=1 query: cannot compute degrees of freedom, variance, or paired t-test."""
+    exp = MagicMock(spec=Experiment, dataset_version_id="ver-edge")
+    run_a = MagicMock(spec=ExperimentRun, id="run-a", experiment=exp)
+    run_b = MagicMock(spec=ExperimentRun, id="run-b", experiment=exp)
+
+    res = StatisticalComparator.compare_single_metric(
+        run_a=run_a,
+        run_b=run_b,
+        metric_name="recall@5",
+        scores_a_by_query={"q1": 0.50},
+        scores_b_by_query={"q1": 0.70},
+    )
+    assert abs(res.mean_difference - 0.20) < 1e-7
+    assert res.t_statistic is None
+    assert res.t_df is None
+    assert res.raw_p_value is None
+    assert res.cohens_dz is None
+    assert res.ci95_lower is None
+    assert res.ci95_upper is None
+
+
+def test_statistical_edge_cases_identical_runs() -> None:
+    """Degenerate identical runs: all differences are 0.0."""
+    exp = MagicMock(spec=Experiment, dataset_version_id="ver-edge")
+    run_a = MagicMock(spec=ExperimentRun, id="run-a", experiment=exp)
+    run_b = MagicMock(spec=ExperimentRun, id="run-b", experiment=exp)
+
+    scores = {f"q{i}": 0.75 for i in range(10)}
+    res = StatisticalComparator.compare_single_metric(
+        run_a=run_a,
+        run_b=run_b,
+        metric_name="recall@5",
+        scores_a_by_query=scores,
+        scores_b_by_query=scores,
+    )
+    assert res.mean_difference == 0.0
+    assert res.std_difference == 0.0
+    assert res.t_statistic == 0.0
+    assert res.raw_p_value == 1.0
+    assert res.cohens_dz == 0.0
+    assert res.ci95_lower == 0.0
+    assert res.ci95_upper == 0.0
+    assert res.wilcoxon_statistic == 0.0
+    assert res.wilcoxon_pvalue == 1.0
+    assert res.wilcoxon_method == "degenerate_identical"
+
+
+def test_statistical_edge_cases_constant_delta() -> None:
+    """Zero difference variance with non-zero delta: delta = +0.15 across all queries."""
+    exp = MagicMock(spec=Experiment, dataset_version_id="ver-edge")
+    run_a = MagicMock(spec=ExperimentRun, id="run-a", experiment=exp)
+    run_b = MagicMock(spec=ExperimentRun, id="run-b", experiment=exp)
+
+    scores_a = {f"q{i}": 0.50 for i in range(8)}
+    scores_b = {f"q{i}": 0.65 for i in range(8)}
+    res = StatisticalComparator.compare_single_metric(
+        run_a=run_a,
+        run_b=run_b,
+        metric_name="recall@5",
+        scores_a_by_query=scores_a,
+        scores_b_by_query=scores_b,
+    )
+    assert abs(res.mean_difference - 0.15) < 1e-7
+    assert res.std_difference == 0.0
+    assert res.t_statistic == float("inf")
+    assert res.raw_p_value == 0.0
+    assert res.ci95_lower is not None and abs(res.ci95_lower - 0.15) < 1e-7
+    assert res.ci95_upper is not None and abs(res.ci95_upper - 0.15) < 1e-7

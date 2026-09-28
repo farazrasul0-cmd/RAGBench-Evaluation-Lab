@@ -10,8 +10,14 @@ from typing import Any
 import click
 
 from app.cli.formatting import render_table
+from app.db.repositories.benchmark import BenchmarkRepository
 from app.db.repositories.dataset import DatasetRepository
 from app.db.session import get_async_engine, get_session_factory, init_db
+from app.engine.benchmark.resolver import (
+    AmbiguousPassageError,
+    GroundTruthChunkResolver,
+    UnresolvedPassageError,
+)
 from app.engine.chunkers.base import BaseChunker
 from app.engine.chunkers.fixed_token import FixedTokenChunker
 from app.engine.chunkers.recursive import RecursiveCharacterChunker
@@ -195,6 +201,7 @@ def register_command(
                 name=f"{dataset_name}_benchmark",
                 version=version,
                 queries=b_queries,
+                allow_unresolved_passages=allow_unresolved_passages,
                 metadata={"source_file": str(eval_qa)},
             )
         except Exception as exc:
@@ -258,64 +265,41 @@ def register_command(
                 all_chunks.extend(chunks)
                 total_chunks += len(chunks)
 
-            # Resolve benchmark QA ground-truth passages to chunks deterministically
+            # Validate source document references and persist BenchmarkVersion
+            benchmark_hash: str | None = None
             if benchmark_query_set is not None:
+                known_docs = (
+                    {d.doc_id for d in parsed_docs}
+                    | {d.filename for d in parsed_docs}
+                    | {Path(d.filename).name for d in parsed_docs}
+                    | {Path(d.filename).stem for d in parsed_docs}
+                )
                 for b_q in benchmark_query_set.queries:
                     for passage in b_q.ground_truth_passages:
-                        snippet = passage.text_snippet.strip()
-                        norm_snippet = " ".join(snippet.split())
-                        if not snippet:
-                            continue
-
-                        # 1. Match by explicit chunk_id / passage_id if provided
-                        matching_chunks: list[DocumentChunk] = []
-                        if passage.passage_id:
-                            matching_chunks = [
-                                c for c in all_chunks if c.chunk_id == passage.passage_id
-                            ]
-
-                        # 2. Match by normalized substring search if not matched by ID
-                        if not matching_chunks:
-                            candidates = all_chunks
-                            if passage.doc_id:
-                                doc_candidates = [
-                                    c
-                                    for c in all_chunks
-                                    if c.metadata.get("filename") == passage.doc_id
-                                    or passage.doc_id in c.chunk_id
-                                    or c.metadata.get("doc_id") == passage.doc_id
-                                ]
-                                if doc_candidates:
-                                    candidates = doc_candidates
-
-                            matching_chunks = [
-                                c for c in candidates if norm_snippet in " ".join(c.content.split())
-                            ]
-
-                        if len(matching_chunks) == 1:
-                            resolved_chunk = matching_chunks[0]
-                            passage.passage_id = resolved_chunk.chunk_id
-                            passage.metadata["resolved_chunk_id"] = resolved_chunk.chunk_id
-                        elif len(matching_chunks) > 1:
-                            m_ids = [c.chunk_id for c in matching_chunks]
-                            click.echo(
-                                f"Error: Ground truth passage in query '{b_q.query_id}' is "
-                                f"AMBIGUOUS. "
-                                f"Matches multiple chunks {m_ids}. Snippet: '{snippet[:50]}...'",
-                                err=True,
+                        if passage.doc_id:
+                            matched_doc = (
+                                passage.doc_id in known_docs
+                                or any(passage.doc_id in kd for kd in known_docs)
+                                or any(kd in passage.doc_id for kd in known_docs)
                             )
-                            return 1
-                        else:
-                            if not allow_unresolved_passages:
+                            if not matched_doc and not allow_unresolved_passages:
                                 click.echo(
-                                    f"Error: Ground truth passage in query '{b_q.query_id}' is "
-                                    f"UNRESOLVED. "
-                                    f"Could not map snippet to any chunk: '{snippet[:50]}...'",
+                                    f"Error: Passage in query '{b_q.query_id}' is UNRESOLVED. "
+                                    f"Unknown doc '{passage.doc_id}'. Ingestion aborted.",
                                     err=True,
                                 )
                                 return 1
-                            else:
-                                passage.metadata["resolved_chunk_id"] = None
+
+                benchmark_repo = BenchmarkRepository(session)
+                benchmark_hash = benchmark_query_set.compute_benchmark_hash()
+                await benchmark_repo.create_benchmark(
+                    benchmark_hash=benchmark_hash,
+                    name=benchmark_query_set.name,
+                    description=getattr(benchmark_query_set, "description", ""),
+                    query_count=len(benchmark_query_set.queries),
+                    allow_unresolved_passages=allow_unresolved_passages,
+                    benchmark_data=benchmark_query_set.model_dump(),
+                )
 
             # Create immutable dataset version snapshot with metadata
             version_metadata: dict[str, Any] = {
@@ -326,24 +310,34 @@ def register_command(
             if queries_data:
                 version_metadata["queries"] = queries_data
             elif benchmark_query_set is not None:
-                version_metadata["queries"] = [
-                    {
-                        "query_id": q.query_id,
-                        "query_text": q.query,
-                        "ground_truth_chunks": [
-                            p.metadata.get("resolved_chunk_id") or p.passage_id
-                            for p in q.ground_truth_passages
-                            if (p.metadata.get("resolved_chunk_id") or p.passage_id)
-                        ],
-                        "ground_truth_answer": q.ground_truth_answer,
-                        "metadata": q.metadata,
-                    }
-                    for q in benchmark_query_set.queries
-                ]
+                # Dynamic passage-to-chunk resolution for this version's chunks
+                resolver = GroundTruthChunkResolver()
+                try:
+                    resolved_queries = resolver.resolve_benchmark(benchmark_query_set, all_chunks)
+                    version_metadata["queries"] = [q.model_dump() for q in resolved_queries]
 
-            if benchmark_query_set is not None:
+                    # Annotate passages for this version snapshot
+                    for b_q in benchmark_query_set.queries:
+                        for passage in b_q.ground_truth_passages:
+                            c_ids = resolver.resolve_chunks_for_passage(passage, all_chunks)
+                            if c_ids:
+                                passage.passage_id = c_ids[0]
+                                passage.metadata["resolved_chunk_id"] = c_ids[0]
+                            elif allow_unresolved_passages:
+                                passage.metadata["resolved_chunk_id"] = None
+                except AmbiguousPassageError as exc:
+                    click.echo(f"Error: Ground truth passage is AMBIGUOUS: {exc}", err=True)
+                    return 1
+                except UnresolvedPassageError as exc:
+                    click.echo(f"Error: Ground truth passage is UNRESOLVED: {exc}", err=True)
+                    return 1
+                except Exception as exc:
+                    click.echo(f"Error resolving benchmark passages to chunks: {exc}", err=True)
+                    return 1
+
+            if benchmark_query_set is not None and benchmark_hash is not None:
                 version_metadata["benchmark"] = benchmark_query_set.model_dump()
-                version_metadata["benchmark_hash"] = benchmark_query_set.compute_benchmark_hash()
+                version_metadata["benchmark_hash"] = benchmark_hash
 
             ver = await dataset_repo.create_version(
                 dataset_id=ds.id,

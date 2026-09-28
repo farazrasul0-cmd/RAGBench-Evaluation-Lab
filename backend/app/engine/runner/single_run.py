@@ -102,6 +102,7 @@ class SingleRunExecutor:
             environment=environment,
             random_seed=random_seed,
             git_commit=git_commit,
+            benchmark_hash=getattr(experiment, "benchmark_hash", None),
         )
         run_id = str(run.id)
         await session.commit()
@@ -138,6 +139,7 @@ class SingleRunExecutor:
                 ]
 
                 # 5b. Multi-channel or single Retrieval
+                ret_start = time.perf_counter()
                 sub_queries = trans_res.transformed_queries or [q.query_text]
                 if len(sub_queries) == 1:
                     retrieved_pairs = components.retriever.retrieve(
@@ -155,6 +157,7 @@ class SingleRunExecutor:
                         k=pipeline_config.retrieval.rrf_k,
                         top_k=pipeline_config.retrieval.top_k,
                     )
+                retrieval_latency_ms = (time.perf_counter() - ret_start) * 1000.0
 
                 retrieved_chunks_data = [
                     {
@@ -168,7 +171,9 @@ class SingleRunExecutor:
                 ]
 
                 # 5c. Passage Reranking (preserves original retrieval ranking vs reranked ranking)
+                reranking_latency_ms: float | None = None
                 if components.reranker is not None and retrieved_pairs:
+                    rerank_start = time.perf_counter()
                     candidates = [chunk for chunk, _ in retrieved_pairs]
                     orig_scores = {
                         chunk.chunk_id: (rank, score)
@@ -179,6 +184,7 @@ class SingleRunExecutor:
                         candidates=candidates,
                         top_n=pipeline_config.reranker.top_n,
                     )
+                    reranking_latency_ms = (time.perf_counter() - rerank_start) * 1000.0
                     reranked_chunks_data = [
                         {
                             "chunk_id": chunk.chunk_id,
@@ -374,6 +380,49 @@ class SingleRunExecutor:
                     all_metric_values["citation_recall"].append(cit_res.citation_recall)
 
                 q_latency_ms = (time.perf_counter() - q_start) * 1000.0
+
+                # Explicit latency scopes: never alias missing components
+                metric_results_data.append(
+                    {
+                        "metric_name": "total_latency_ms",
+                        "metric_value": q_latency_ms,
+                        "metric_version": "v1",
+                        "evaluator": "system",
+                    }
+                )
+                all_metric_values["total_latency_ms"].append(q_latency_ms)
+
+                metric_results_data.append(
+                    {
+                        "metric_name": "retrieval_latency_ms",
+                        "metric_value": retrieval_latency_ms,
+                        "metric_version": "v1",
+                        "evaluator": "system",
+                    }
+                )
+                all_metric_values["retrieval_latency_ms"].append(retrieval_latency_ms)
+
+                if reranking_latency_ms is not None:
+                    metric_results_data.append(
+                        {
+                            "metric_name": "reranking_latency_ms",
+                            "metric_value": reranking_latency_ms,
+                            "metric_version": "v1",
+                            "evaluator": "system",
+                        }
+                    )
+                    all_metric_values["reranking_latency_ms"].append(reranking_latency_ms)
+
+                if gen_latency_ms is not None:
+                    metric_results_data.append(
+                        {
+                            "metric_name": "generation_latency_ms",
+                            "metric_value": gen_latency_ms,
+                            "metric_version": "v1",
+                            "evaluator": "system",
+                        }
+                    )
+                    all_metric_values["generation_latency_ms"].append(gen_latency_ms)
 
                 query_metadata = {
                     **q.metadata,

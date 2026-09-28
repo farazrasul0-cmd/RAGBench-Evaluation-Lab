@@ -11,11 +11,39 @@ class ComparisonAlignment(BaseModel):
     dataset_version_match: bool = Field(
         description="Whether runs evaluate the exact same dataset version"
     )
+    dataset_version_id_a: str = Field(
+        default="", description="Dataset version ID evaluated by Run A"
+    )
+    dataset_version_id_b: str = Field(
+        default="", description="Dataset version ID evaluated by Run B"
+    )
+    dataset_version_hash_a: str | None = Field(
+        default=None, description="Content hash of dataset version A"
+    )
+    dataset_version_hash_b: str | None = Field(
+        default=None, description="Content hash of dataset version B"
+    )
+
+    benchmark_match: bool = Field(
+        default=True, description="Whether runs evaluate the identical benchmark specification"
+    )
+    benchmark_hash_a: str | None = Field(default=None, description="Benchmark hash for Run A")
+    benchmark_hash_b: str | None = Field(default=None, description="Benchmark hash for Run B")
+
     query_set_match: bool = Field(
         description="Whether runs evaluate the identical set of benchmark queries"
     )
-    metric_match: bool = Field(description="Whether compared metric definitions are identical")
-    k_match: bool = Field(description="Whether metric K parameter is identical")
+    query_set_hash_a: str = Field(description="Deterministic hash of Run A query ID set")
+    query_set_hash_b: str = Field(description="Deterministic hash of Run B query ID set")
+
+    metric_name: str = Field(description="Standardized metric name being compared")
+    k_a: int | None = Field(default=None, description="Cutoff K parameter for Run A")
+    k_b: int | None = Field(default=None, description="Cutoff K parameter for Run B")
+    metric_match: bool = Field(
+        default=True, description="Whether compared metric definitions are identical"
+    )
+    k_match: bool = Field(default=True, description="Whether metric K parameter is identical")
+
     n_total_a: int = Field(description="Total queries executed in Run A")
     n_total_b: int = Field(description="Total queries executed in Run B")
     n_paired: int = Field(description="Number of strictly paired query observations")
@@ -53,7 +81,7 @@ class StatisticalComparisonResult(BaseModel):
 
     mean_a: float
     mean_b: float
-    mean_difference: float  # ar{D} = mean(score_b - score_a)
+    mean_difference: float  # d_bar = mean(score_b - score_a)
     std_difference: float  # s_D
 
     # Paired Student's t-test
@@ -69,7 +97,7 @@ class StatisticalComparisonResult(BaseModel):
     wilcoxon_method: str = "exact"  # "exact" | "asymptotic" | "degenerate_identical"
 
     # Effect size and bounds
-    cohens_dz: float | None = None  # ar{D} / s_D
+    cohens_dz: float | None = None  # d_bar / s_D
     ci95_lower: float | None = None  # 95% CI lower bound for mean paired difference
     ci95_upper: float | None = None  # 95% CI upper bound for mean paired difference
 

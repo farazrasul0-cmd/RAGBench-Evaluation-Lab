@@ -145,3 +145,23 @@ def test_replication_archive_package(
     for rel_path, expected_hash in hashes.items():
         actual_hash = hashlib.sha256((target_dir / rel_path).read_bytes()).hexdigest()
         assert actual_hash == expected_hash, f"Hash mismatch for {rel_path}!"
+
+
+def test_academic_latex_exporter_neutrality_by_default(
+    sample_report: MetricSignificanceReport,
+) -> None:
+    """Verify that by default (bold_maximum=False), no metric value in table rows is bolded."""
+    latex_neutral = AcademicLatexExporter.export_comparison_table(sample_report, bold_maximum=False)
+    # Check that data rows do not contain \textbf{
+    for line in latex_neutral.splitlines():
+        if "&" in line and not line.strip().startswith(r"\textbf{Metric}"):
+            assert "\\textbf{" not in line
+
+    latex_bold = AcademicLatexExporter.export_comparison_table(sample_report, bold_maximum=True)
+    # With bold_maximum=True, data rows bold the sample maximum
+    has_bold_data = any(
+        "\\textbf{" in line
+        for line in latex_bold.splitlines()
+        if "&" in line and not line.strip().startswith(r"\textbf{Metric}")
+    )
+    assert has_bold_data is True

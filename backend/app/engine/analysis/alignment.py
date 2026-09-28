@@ -1,11 +1,13 @@
-"""Alignment engine ensuring strict query-level pairing and run comparability."""
+"""Alignment engine for query-level pairing, compatibility, and permutation invariance."""
+
+import hashlib
 
 from app.models.entities import ExperimentRun
 from app.schemas.analysis import ComparisonAlignment
 
 
 class IncompatibleRunsError(Exception):
-    """Raised when two runs are not statistically comparable (e.g. mismatched dataset versions)."""
+    """Raised when two runs are not comparable (mismatched datasets, benchmarks, or K)."""
 
 
 class QuerySetMismatchError(Exception):
@@ -13,7 +15,7 @@ class QuerySetMismatchError(Exception):
 
 
 class AlignmentValidator:
-    """Validates compatibility and establishes strict query-by-query paired alignment."""
+    """Validates compatibility and establishes deterministic paired query alignment."""
 
     @classmethod
     def validate_and_align(
@@ -24,17 +26,54 @@ class AlignmentValidator:
         scores_b_by_query: dict[str, float],
         metric_name: str,
         k: int | None = None,
+        k_a: int | None = None,
+        k_b: int | None = None,
         allow_partial_query_overlap: bool = False,
     ) -> ComparisonAlignment:
-        """Validate run compatibility and produce deterministic paired query alignment."""
+        """Validate compatibility, K parity, benchmark hash, and return alignment."""
         # 1. Dataset version identity verification
-        ds_ver_a = run_a.experiment.dataset_version_id if run_a.experiment else None
-        ds_ver_b = run_b.experiment.dataset_version_id if run_b.experiment else None
+        ds_ver_a: str | None = None
+        ds_hash_a: str | None = None
+        bench_raw_a = getattr(run_a, "benchmark_hash", None)
+        bench_hash_a: str | None = bench_raw_a if isinstance(bench_raw_a, str) else None
+        try:
+            exp_a = getattr(run_a, "experiment", None)
+            if exp_a is not None:
+                dva_id = getattr(exp_a, "dataset_version_id", None)
+                if isinstance(dva_id, str):
+                    ds_ver_a = dva_id
+                if bench_hash_a is None:
+                    bha = getattr(exp_a, "benchmark_hash", None)
+                    if isinstance(bha, str):
+                        bench_hash_a = bha
+                dv_a = getattr(exp_a, "dataset_version", None)
+                if dv_a is not None:
+                    dha = getattr(dv_a, "content_hash", None)
+                    if isinstance(dha, str):
+                        ds_hash_a = dha
+        except Exception:
+            pass
 
-        if (ds_ver_a is None or ds_ver_b is None) and (
-            getattr(run_a, "experiment_id", "") != getattr(run_b, "experiment_id", "")
-        ):
-            # If they have different experiment IDs, verify dataset versions
+        ds_ver_b: str | None = None
+        ds_hash_b: str | None = None
+        bench_raw_b = getattr(run_b, "benchmark_hash", None)
+        bench_hash_b: str | None = bench_raw_b if isinstance(bench_raw_b, str) else None
+        try:
+            exp_b = getattr(run_b, "experiment", None)
+            if exp_b is not None:
+                dvb_id = getattr(exp_b, "dataset_version_id", None)
+                if isinstance(dvb_id, str):
+                    ds_ver_b = dvb_id
+                if bench_hash_b is None:
+                    bhb = getattr(exp_b, "benchmark_hash", None)
+                    if isinstance(bhb, str):
+                        bench_hash_b = bhb
+                dv_b = getattr(exp_b, "dataset_version", None)
+                if dv_b is not None:
+                    dhb = getattr(dv_b, "content_hash", None)
+                    if isinstance(dhb, str):
+                        ds_hash_b = dhb
+        except Exception:
             pass
 
         if ds_ver_a and ds_ver_b and ds_ver_a != ds_ver_b:
@@ -43,12 +82,41 @@ class AlignmentValidator:
                 f"Run A evaluates '{ds_ver_a}' while Run B evaluates '{ds_ver_b}'."
             )
 
-        dataset_version_match = ds_ver_a == ds_ver_b if (ds_ver_a and ds_ver_b) else True
+        if ds_hash_a and ds_hash_b and ds_hash_a != ds_hash_b:
+            raise IncompatibleRunsError(
+                f"Runs are not statistically comparable: dataset content_hash differs. "
+                f"Run A evaluates '{ds_hash_a}' while Run B evaluates '{ds_hash_b}'."
+            )
 
-        # 2. Query ID alignment
+        # 2. Benchmark specification hash verification
+        if bench_hash_a and bench_hash_b and bench_hash_a != bench_hash_b:
+            raise IncompatibleRunsError(
+                f"Runs are not statistically comparable: benchmark specification hash differs. "
+                f"Run A evaluates '{bench_hash_a}' while Run B evaluates '{bench_hash_b}'."
+            )
+
+        # 3. Metric parameter K compatibility
+        eff_k_a = k_a if k_a is not None else k
+        eff_k_b = k_b if k_b is not None else k
+        if eff_k_a is not None and eff_k_b is not None and eff_k_a != eff_k_b:
+            raise IncompatibleRunsError(
+                f"Runs are not statistically comparable: metric K differs for '{metric_name}'. "
+                f"Run A evaluated at K={eff_k_a} while Run B evaluated at K={eff_k_b}."
+            )
+        # 4. Query set alignment and permutation-invariant pairing
         queries_a = set(scores_a_by_query.keys())
         queries_b = set(scores_b_by_query.keys())
 
+        # Check for duplicate query keys in input observations
+        if len(queries_a) != len(scores_a_by_query):
+            raise ValueError("Duplicate query IDs detected in Run A observations.")
+        if len(queries_b) != len(scores_b_by_query):
+            raise ValueError("Duplicate query IDs detected in Run B observations.")
+
+        query_hash_a = hashlib.sha256(",".join(sorted(queries_a)).encode("utf-8")).hexdigest()
+        query_hash_b = hashlib.sha256(",".join(sorted(queries_b)).encode("utf-8")).hexdigest()
+
+        # Deterministic lexicographical sort ensures 100% permutation invariance
         paired_query_ids = sorted(queries_a & queries_b)
         missing_in_a = sorted(queries_b - queries_a)
         missing_in_b = sorted(queries_a - queries_b)
@@ -72,15 +140,38 @@ class AlignmentValidator:
             )
 
         if not paired_query_ids:
-            raise IncompatibleRunsError(
-                "Zero overlapping query observations between compared runs."
+            raise ValueError(
+                f"Zero overlapping queries between Run A and Run B for metric '{metric_name}'."
             )
 
+        clean_ds_hash_a = ds_hash_a if isinstance(ds_hash_a, str) else None
+        clean_ds_hash_b = ds_hash_b if isinstance(ds_hash_b, str) else None
+        clean_bench_hash_a = bench_hash_a if isinstance(bench_hash_a, str) else None
+        clean_bench_hash_b = bench_hash_b if isinstance(bench_hash_b, str) else None
+        clean_ds_ver_a = ds_ver_a if isinstance(ds_ver_a, str) else ""
+        clean_ds_ver_b = ds_ver_b if isinstance(ds_ver_b, str) else ""
+
         return ComparisonAlignment(
-            dataset_version_match=dataset_version_match,
+            dataset_version_match=clean_ds_ver_a == clean_ds_ver_b
+            if (clean_ds_ver_a and clean_ds_ver_b)
+            else True,
+            dataset_version_id_a=clean_ds_ver_a,
+            dataset_version_id_b=clean_ds_ver_b,
+            dataset_version_hash_a=clean_ds_hash_a,
+            dataset_version_hash_b=clean_ds_hash_b,
+            benchmark_match=clean_bench_hash_a == clean_bench_hash_b
+            if (clean_bench_hash_a and clean_bench_hash_b)
+            else True,
+            benchmark_hash_a=clean_bench_hash_a,
+            benchmark_hash_b=clean_bench_hash_b,
             query_set_match=query_set_match,
+            query_set_hash_a=query_hash_a,
+            query_set_hash_b=query_hash_b,
+            metric_name=metric_name,
+            k_a=eff_k_a,
+            k_b=eff_k_b,
             metric_match=True,
-            k_match=True,
+            k_match=eff_k_a == eff_k_b if (eff_k_a is not None and eff_k_b is not None) else True,
             n_total_a=len(queries_a),
             n_total_b=len(queries_b),
             n_paired=len(paired_query_ids),

@@ -28,6 +28,7 @@ dev = [
     "ruff>=0.9.0",
     "mypy>=1.14.0",
     "types-pyyaml>=6.0.0",
+    "scipy>=1.14.0",
 ]
 
 [project.scripts]
@@ -79,5 +80,6 @@ pythonpath = ["."]
 module = [
     "rank_bm25.*",
     "flashrank.*",
+    "scipy.*",
 ]
 ignore_missing_imports = true

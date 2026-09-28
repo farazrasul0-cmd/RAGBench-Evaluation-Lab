@@ -6,6 +6,7 @@ from typing import Any
 from sqlalchemy import (
     JSON,
     BigInteger,
+    Boolean,
     DateTime,
     Float,
     ForeignKey,
@@ -176,6 +177,7 @@ class Experiment(Base):
     status: Mapped[str] = mapped_column(String(32), default="DRAFT", nullable=False)
     configuration: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     configuration_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    benchmark_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
@@ -204,6 +206,7 @@ class ExperimentRun(Base):
     pipeline_config_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     cache_key: Mapped[str] = mapped_column(String(255), nullable=False)
     cache_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    benchmark_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String(32), default="RUNNING", nullable=False)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
@@ -445,4 +448,26 @@ class RunMetricSummary(Base):
     __table_args__ = (
         UniqueConstraint("experiment_run_id", "metric_name", name="uq_run_metric_summary"),
         Index("idx_run_metric_summary", "experiment_run_id", "metric_name"),
+    )
+
+
+class BenchmarkVersion(Base):
+    """An immutable, versioned benchmark query set independent of chunking."""
+
+    __tablename__ = "benchmark_versions"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=generate_uuid)
+    name: Mapped[str] = mapped_column(String(255), nullable=False, index=True)
+    version_number: Mapped[int] = mapped_column(Integer, default=1, nullable=False)
+    benchmark_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
+    query_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    allow_unresolved_passages: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    benchmark_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utc_now, nullable=False
+    )
+
+    __table_args__ = (
+        UniqueConstraint("name", "version_number", name="uq_benchmark_name_version"),
+        Index("idx_benchmark_name_version", "name", "version_number"),
     )

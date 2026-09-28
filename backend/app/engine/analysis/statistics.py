@@ -225,9 +225,13 @@ class StatisticalComparator:
         scores_a_by_query: dict[str, float],
         scores_b_by_query: dict[str, float],
         k: int | None = None,
+        k_a: int | None = None,
+        k_b: int | None = None,
         allow_partial_query_overlap: bool = False,
     ) -> StatisticalComparisonResult:
         """Perform paired t-test, Wilcoxon, Cohen's dz, and CI on a single metric."""
+        eff_k_a = k_a if k_a is not None else k
+        eff_k_b = k_b if k_b is not None else k
         alignment: ComparisonAlignment = AlignmentValidator.validate_and_align(
             run_a=run_a,
             run_b=run_b,
@@ -235,6 +239,8 @@ class StatisticalComparator:
             scores_b_by_query=scores_b_by_query,
             metric_name=metric_name,
             k=k,
+            k_a=eff_k_a,
+            k_b=eff_k_b,
             allow_partial_query_overlap=allow_partial_query_overlap,
         )
 
@@ -398,6 +404,8 @@ class StatisticalComparator:
                 scores_a_by_query=scores_a,
                 scores_b_by_query=scores_b,
                 k=k_val,
+                k_a=k_val,
+                k_b=k_val,
                 allow_partial_query_overlap=allow_partial_query_overlap,
             )
             results[m_name] = res
