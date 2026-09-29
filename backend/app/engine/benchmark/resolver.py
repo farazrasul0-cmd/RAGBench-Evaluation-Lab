@@ -80,7 +80,7 @@ class GroundTruthChunkResolver:
                 )
                 if overlap_len > 0:
                     matching_chunk_ids.append(c.chunk_id)
-                    continue
+                continue
 
             # B. Substring containment check:
             # Case 1: Snippet is fully contained within this chunk

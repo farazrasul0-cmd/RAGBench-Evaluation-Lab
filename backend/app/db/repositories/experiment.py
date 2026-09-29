@@ -6,6 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.core.protocols import DEFAULT_EVALUATION_PROTOCOL, DEFAULT_METRIC_PROTOCOL
 from app.db.base import utc_now
 from app.models.entities import Experiment, ExperimentRun, RunMetricSummary
 
@@ -25,6 +26,8 @@ class ExperimentRepository:
         benchmark_hash: str | None = None,
         description: str | None = None,
         created_by: str | None = None,
+        evaluation_protocol_version: str = DEFAULT_EVALUATION_PROTOCOL,
+        metric_definition_version: str = DEFAULT_METRIC_PROTOCOL,
     ) -> Experiment:
         """Create and persist an Experiment definition."""
         experiment = Experiment(
@@ -35,6 +38,8 @@ class ExperimentRepository:
             configuration_hash=configuration_hash,
             benchmark_hash=benchmark_hash,
             created_by=created_by,
+            evaluation_protocol_version=evaluation_protocol_version,
+            metric_definition_version=metric_definition_version,
         )
         self.session.add(experiment)
         await self.session.flush()
@@ -60,6 +65,8 @@ class ExperimentRepository:
         environment: str = "local",
         random_seed: int = 42,
         git_commit: str | None = None,
+        evaluation_protocol_version: str = DEFAULT_EVALUATION_PROTOCOL,
+        metric_definition_version: str = DEFAULT_METRIC_PROTOCOL,
     ) -> ExperimentRun:
         """Create an individual physical execution run of a pipeline point."""
         run = ExperimentRun(
@@ -71,6 +78,8 @@ class ExperimentRepository:
             environment=environment,
             random_seed=random_seed,
             git_commit=git_commit,
+            evaluation_protocol_version=evaluation_protocol_version,
+            metric_definition_version=metric_definition_version,
             status="RUNNING",
         )
         self.session.add(run)

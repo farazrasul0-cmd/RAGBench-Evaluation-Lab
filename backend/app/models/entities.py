@@ -18,6 +18,7 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from app.core.protocols import DEFAULT_EVALUATION_PROTOCOL, DEFAULT_METRIC_PROTOCOL
 from app.db.base import Base, generate_uuid, utc_now
 
 # ============================================================================
@@ -178,6 +179,12 @@ class Experiment(Base):
     configuration: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     configuration_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     benchmark_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    evaluation_protocol_version: Mapped[str] = mapped_column(
+        String(64), default=DEFAULT_EVALUATION_PROTOCOL, nullable=False
+    )
+    metric_definition_version: Mapped[str] = mapped_column(
+        String(64), default=DEFAULT_METRIC_PROTOCOL, nullable=False
+    )
     created_by: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
@@ -207,6 +214,12 @@ class ExperimentRun(Base):
     cache_key: Mapped[str] = mapped_column(String(255), nullable=False)
     cache_hash: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
     benchmark_hash: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    evaluation_protocol_version: Mapped[str] = mapped_column(
+        String(64), default=DEFAULT_EVALUATION_PROTOCOL, nullable=False
+    )
+    metric_definition_version: Mapped[str] = mapped_column(
+        String(64), default=DEFAULT_METRIC_PROTOCOL, nullable=False
+    )
     status: Mapped[str] = mapped_column(String(32), default="RUNNING", nullable=False)
     started_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False
@@ -462,6 +475,12 @@ class BenchmarkVersion(Base):
     benchmark_hash: Mapped[str] = mapped_column(String(64), nullable=False, unique=True, index=True)
     query_count: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
     allow_unresolved_passages: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    evaluation_protocol_version: Mapped[str] = mapped_column(
+        String(64), default=DEFAULT_EVALUATION_PROTOCOL, nullable=False
+    )
+    metric_definition_version: Mapped[str] = mapped_column(
+        String(64), default=DEFAULT_METRIC_PROTOCOL, nullable=False
+    )
     benchmark_data: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False)
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utc_now, nullable=False

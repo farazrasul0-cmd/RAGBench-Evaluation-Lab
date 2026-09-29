@@ -43,6 +43,22 @@ class ComparisonAlignment(BaseModel):
         default=True, description="Whether compared metric definitions are identical"
     )
     k_match: bool = Field(default=True, description="Whether metric K parameter is identical")
+    protocol_match: bool = Field(
+        default=True,
+        description="Whether evaluation and metric protocols match identically between runs",
+    )
+    evaluation_protocol_version_a: str = Field(
+        default="", description="Evaluation protocol version of Run A"
+    )
+    evaluation_protocol_version_b: str = Field(
+        default="", description="Evaluation protocol version of Run B"
+    )
+    metric_definition_version_a: str = Field(
+        default="", description="Metric definition version of Run A"
+    )
+    metric_definition_version_b: str = Field(
+        default="", description="Metric definition version of Run B"
+    )
 
     n_total_a: int = Field(description="Total queries executed in Run A")
     n_total_b: int = Field(description="Total queries executed in Run B")

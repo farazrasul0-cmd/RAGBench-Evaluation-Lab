@@ -6,6 +6,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from app.core.protocols import DEFAULT_EVALUATION_PROTOCOL, DEFAULT_METRIC_PROTOCOL
+
 
 class GroundTruthPassage(BaseModel):
     """Represents an authoritative gold source passage proving answer factuality.
@@ -59,6 +61,14 @@ class BenchmarkQuerySet(BaseModel):
         default=False,
         description="Explicit benchmark-level specification policy on unresolved passages",
     )
+    evaluation_protocol_version: str = Field(
+        default=DEFAULT_EVALUATION_PROTOCOL,
+        description="Protocol specification version governing evaluation semantics",
+    )
+    metric_definition_version: str = Field(
+        default=DEFAULT_METRIC_PROTOCOL,
+        description="Metric definition version governing statistical computation",
+    )
     metadata: dict[str, Any] = Field(default_factory=dict)
 
     def compute_benchmark_hash(self) -> str:
@@ -88,6 +98,8 @@ class BenchmarkQuerySet(BaseModel):
             "name": self.name.strip(),
             "version": self.version,
             "allow_unresolved_passages": self.allow_unresolved_passages,
+            "evaluation_protocol_version": self.evaluation_protocol_version,
+            "metric_definition_version": self.metric_definition_version,
             "queries": payload,
         }
         canonical_str = json.dumps(canonical_dict, sort_keys=True, separators=(",", ":"))

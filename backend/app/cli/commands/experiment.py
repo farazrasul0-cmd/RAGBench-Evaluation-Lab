@@ -11,6 +11,7 @@ from typing import Any
 import click
 
 from app.cli.formatting import format_delta, render_table
+from app.core.protocols import DEFAULT_EVALUATION_PROTOCOL, DEFAULT_METRIC_PROTOCOL
 from app.db.repositories.benchmark import BenchmarkRepository
 from app.db.repositories.dataset import DatasetRepository
 from app.db.repositories.experiment import ExperimentRepository
@@ -226,6 +227,7 @@ def run_command(
             # Resolve benchmark queries dynamically if benchmark_hash exists, else fallback
             queries: list[EvaluationQuery] = []
             benchmark_hash: str | None = None
+            b_set: BenchmarkQuerySet | None = None
             if ver.metadata_json and "benchmark_hash" in ver.metadata_json:
                 benchmark_hash = ver.metadata_json["benchmark_hash"]
                 bench_repo = BenchmarkRepository(session)
@@ -256,6 +258,16 @@ def run_command(
                     return 1
 
             # Fetch or create parent experiment record with benchmark_hash
+            eval_proto = (
+                getattr(b_set, "evaluation_protocol_version", DEFAULT_EVALUATION_PROTOCOL)
+                if b_set is not None
+                else DEFAULT_EVALUATION_PROTOCOL
+            )
+            metric_proto = (
+                getattr(b_set, "metric_definition_version", DEFAULT_METRIC_PROTOCOL)
+                if b_set is not None
+                else DEFAULT_METRIC_PROTOCOL
+            )
             exp = await exp_repo.create_experiment(
                 name=config.metadata.name,
                 dataset_version_id=ver.id,
@@ -263,6 +275,8 @@ def run_command(
                 configuration=config.model_dump(),
                 configuration_hash=config.compute_configuration_hash(),
                 benchmark_hash=benchmark_hash,
+                evaluation_protocol_version=eval_proto,
+                metric_definition_version=metric_proto,
             )
             await session.commit()
             exp_id = exp.id

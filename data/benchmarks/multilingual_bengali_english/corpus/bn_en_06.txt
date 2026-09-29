@@ -1,0 +1,1 @@
+Tandem perovskite-silicon solar cells achieve power conversion efficiencies exceeding 33% under standardized laboratory illumination. Integration into urban microgrids necessitates bi-directional inverters and distributed battery energy storage systems (BESS) to smooth out solar intermittency.

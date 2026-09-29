@@ -1,0 +1,23 @@
+# RQ2: Retrieval Paradigm Generalization Study
+# Evaluates Dense Semantic vs Sparse BM25 vs Hybrid Reciprocal Rank Fusion across corpora.
+metadata:
+  name: "rq2_retrieval_generalization"
+  description: "RQ2 empirical sweep isolating retrieval techniques (dense, bm25, hybrid) under fixed chunking."
+  author: "RAGBench Research Team"
+
+parameters:
+  chunking:
+    strategy: "fixed"
+    chunk_size: 250
+    chunk_overlap: 25
+  embedding:
+    provider: "fastembed"
+    model: "BAAI/bge-small-en-v1.5"
+  retrieval:
+    strategy: ["dense", "bm25", "hybrid"]
+    k: 5
+    rrf_k: 60
+  generation:
+    provider: "mock"
+    model: "mock-deterministic"
+    temperature: 0.0

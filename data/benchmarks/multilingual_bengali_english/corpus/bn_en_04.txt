@@ -1,0 +1,1 @@
+Indic languages including Bengali and Hindi present unique morphological complexities for subword tokenization. Byte-pair encoding and sentencepiece models frequently over-segment complex compound characters and vowel diacritics. Cross-lingual transfer learning from high-resource representations alleviates semantic sparsity.

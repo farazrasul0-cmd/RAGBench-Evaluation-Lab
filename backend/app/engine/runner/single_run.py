@@ -7,6 +7,7 @@ from typing import Any
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.protocols import DEFAULT_EVALUATION_PROTOCOL, DEFAULT_METRIC_PROTOCOL
 from app.db.repositories.dataset import DatasetRepository
 from app.db.repositories.experiment import ExperimentRepository
 from app.db.repositories.query_trace import QueryTraceRepository
@@ -94,6 +95,8 @@ class SingleRunExecutor:
         )
 
         # 3. Create ExperimentRun record in RUNNING status and commit run initialization
+        eval_proto = getattr(experiment, "evaluation_protocol_version", DEFAULT_EVALUATION_PROTOCOL)
+        metric_proto = getattr(experiment, "metric_definition_version", DEFAULT_METRIC_PROTOCOL)
         run = await exp_repo.create_run(
             experiment_id=exp_id,
             pipeline_config_hash=pipeline_config_hash,
@@ -103,6 +106,8 @@ class SingleRunExecutor:
             random_seed=random_seed,
             git_commit=git_commit,
             benchmark_hash=getattr(experiment, "benchmark_hash", None),
+            evaluation_protocol_version=eval_proto,
+            metric_definition_version=metric_proto,
         )
         run_id = str(run.id)
         await session.commit()

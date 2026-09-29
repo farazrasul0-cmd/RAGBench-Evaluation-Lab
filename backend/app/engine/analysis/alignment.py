@@ -95,6 +95,41 @@ class AlignmentValidator:
                 f"Run A evaluates '{bench_hash_a}' while Run B evaluates '{bench_hash_b}'."
             )
 
+        # 2b. Evaluation protocol & metric definition version compatibility
+        raw_eval_a = getattr(run_a, "evaluation_protocol_version", None)
+        if not isinstance(raw_eval_a, str) and hasattr(run_a, "experiment") and run_a.experiment:
+            raw_eval_a = getattr(run_a.experiment, "evaluation_protocol_version", None)
+        proto_eval_a = raw_eval_a if isinstance(raw_eval_a, str) else None
+
+        raw_eval_b = getattr(run_b, "evaluation_protocol_version", None)
+        if not isinstance(raw_eval_b, str) and hasattr(run_b, "experiment") and run_b.experiment:
+            raw_eval_b = getattr(run_b.experiment, "evaluation_protocol_version", None)
+        proto_eval_b = raw_eval_b if isinstance(raw_eval_b, str) else None
+
+        raw_metric_a = getattr(run_a, "metric_definition_version", None)
+        if not isinstance(raw_metric_a, str) and hasattr(run_a, "experiment") and run_a.experiment:
+            raw_metric_a = getattr(run_a.experiment, "metric_definition_version", None)
+        proto_metric_a = raw_metric_a if isinstance(raw_metric_a, str) else None
+
+        raw_metric_b = getattr(run_b, "metric_definition_version", None)
+        if not isinstance(raw_metric_b, str) and hasattr(run_b, "experiment") and run_b.experiment:
+            raw_metric_b = getattr(run_b.experiment, "metric_definition_version", None)
+        proto_metric_b = raw_metric_b if isinstance(raw_metric_b, str) else None
+
+        if proto_eval_a and proto_eval_b and proto_eval_a != proto_eval_b:
+            raise IncompatibleRunsError(
+                "Runs are not statistically comparable: evaluation_protocol_version differs. "
+                f"Run A evaluates with '{proto_eval_a}' while Run B evaluates with "
+                f"'{proto_eval_b}'."
+            )
+
+        if proto_metric_a and proto_metric_b and proto_metric_a != proto_metric_b:
+            raise IncompatibleRunsError(
+                "Runs are not statistically comparable: metric_definition_version differs. "
+                f"Run A evaluates with '{proto_metric_a}' while Run B evaluates with "
+                f"'{proto_metric_b}'."
+            )
+
         # 3. Metric parameter K compatibility
         eff_k_a = k_a if k_a is not None else k
         eff_k_b = k_b if k_b is not None else k
@@ -178,4 +213,16 @@ class AlignmentValidator:
             missing_in_a=missing_in_a,
             missing_in_b=missing_in_b,
             paired_query_ids=paired_query_ids,
+            protocol_match=(
+                (proto_eval_a == proto_eval_b if (proto_eval_a and proto_eval_b) else True)
+                and (
+                    proto_metric_a == proto_metric_b
+                    if (proto_metric_a and proto_metric_b)
+                    else True
+                )
+            ),
+            evaluation_protocol_version_a=str(proto_eval_a or ""),
+            evaluation_protocol_version_b=str(proto_eval_b or ""),
+            metric_definition_version_a=str(proto_metric_a or ""),
+            metric_definition_version_b=str(proto_metric_b or ""),
         )

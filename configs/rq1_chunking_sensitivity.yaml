@@ -1,0 +1,22 @@
+# RQ1: Chunking Strategy & Granularity Sensitivity Study
+# Evaluates how chunk size and segmentation boundary affect retrieval precision and faithfulness.
+metadata:
+  name: "rq1_chunking_sensitivity"
+  description: "RQ1 empirical sweep isolating chunk size (200 vs 400) across Fixed and Recursive strategies."
+  author: "RAGBench Research Team"
+
+parameters:
+  chunking:
+    strategy: ["fixed", "recursive"]
+    chunk_size: [200, 400]
+    chunk_overlap: [20]
+  embedding:
+    provider: "fastembed"
+    model: "BAAI/bge-small-en-v1.5"
+  retrieval:
+    strategy: "dense"
+    k: 5
+  generation:
+    provider: "mock"
+    model: "mock-deterministic"
+    temperature: 0.0
