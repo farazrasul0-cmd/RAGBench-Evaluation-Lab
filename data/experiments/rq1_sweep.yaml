@@ -1,0 +1,17 @@
+
+name: "RQ1 Chunking Granularity & Topology Reference Study"
+description: "Factorial sweep isolating 3 chunking strategies (Fixed, Recursive, Sentence) across 200 and 400 token windows."
+dataset:
+  dataset_id: "scifact_canonical"
+  dataset_version_id: "b7b48c60-96df-4eb3-be2b-e99d323d9486"
+parameters:
+  chunking:
+    strategy: ["fixed", "recursive", "sentence"]
+    chunk_size: [200, 400]
+    chunk_overlap: [20]
+  retrieval:
+    mode: "dense"
+    top_k: 5
+  evaluation:
+    metrics: ["recall", "mrr", "ndcg", "precision"]
+    k_values: [5]

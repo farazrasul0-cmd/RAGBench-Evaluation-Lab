@@ -1,0 +1,6 @@
+{
+  "chunking.strategy": {
+    "run_1": "fixed",
+    "run_2": "recursive"
+  }
+}

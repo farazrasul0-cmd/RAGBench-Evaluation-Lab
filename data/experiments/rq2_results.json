@@ -1,0 +1,74 @@
+{
+  "experiment_id": "2116834d-ae3a-49fc-bb65-b83412156894",
+  "total_configurations": 3,
+  "executed_runs": 2,
+  "cached_runs": 1,
+  "failed_runs": 0,
+  "status": "COMPLETED",
+  "results": [
+    {
+      "experiment_run_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "experiment_id": "2116834d-ae3a-49fc-bb65-b83412156894",
+      "pipeline_config_hash": "4fe776106f1181380b3a2d61710899466c05eedd8a1c6122da0ccb839f23bfb6",
+      "cache_hash": "e45d10bd585568e6b10f6ac342be8b566e3d6f2aed73766b64f0b7f35ef0badc",
+      "status": "COMPLETED",
+      "total_queries": 30,
+      "completed_queries": 30,
+      "failed_queries": 0,
+      "mean_metrics": {
+        "recall@5": 1.0,
+        "precision@5": 0.21333333333333335,
+        "mrr@5": 0.9833333333333333,
+        "ndcg@5": 0.9876976584523819,
+        "total_latency_ms": 43.44717333248506,
+        "retrieval_latency_ms": 31.94779665597404,
+        "generation_latency_ms": 0.024583326497425634
+      },
+      "duration_ms": 0.0,
+      "cached": true
+    },
+    {
+      "experiment_run_id": "208fbeb2-3a99-4e0b-aa45-a69d3116d095",
+      "experiment_id": "2116834d-ae3a-49fc-bb65-b83412156894",
+      "pipeline_config_hash": "d4b8efd3f278ac946b208e050e5edf61c4cee829d1310b84b917c9585b7bbb20",
+      "cache_hash": "080212c5ed403117f044f384c0f715ed69991728a6c7e183118028613dfc3320",
+      "status": "COMPLETED",
+      "total_queries": 30,
+      "completed_queries": 30,
+      "failed_queries": 0,
+      "mean_metrics": {
+        "recall@5": 1.0,
+        "precision@5": 0.21333333333333335,
+        "mrr@5": 1.0,
+        "ndcg@5": 0.9973240263049395,
+        "total_latency_ms": 5.935919998834531,
+        "retrieval_latency_ms": 0.876136675166587,
+        "generation_latency_ms": 0.014326667102674643
+      },
+      "duration_ms": 1213.3666999870911,
+      "cached": false
+    },
+    {
+      "experiment_run_id": "64591de0-d0c2-4bae-92d2-83eb6975b04d",
+      "experiment_id": "2116834d-ae3a-49fc-bb65-b83412156894",
+      "pipeline_config_hash": "82e023e04fe9fcda8b46c4bc7eda91cac863ab83687dcc77958a0eb4c9f3a202",
+      "cache_hash": "4175974c69e3210bd116859e8d406587bfdd0530328aebdbfa98c3927766a344",
+      "status": "COMPLETED",
+      "total_queries": 30,
+      "completed_queries": 30,
+      "failed_queries": 0,
+      "mean_metrics": {
+        "recall@5": 1.0,
+        "precision@5": 0.21333333333333335,
+        "mrr@5": 1.0,
+        "ndcg@5": 1.0,
+        "total_latency_ms": 39.742513336629294,
+        "retrieval_latency_ms": 31.491099994552012,
+        "generation_latency_ms": 0.02432333615918954
+      },
+      "duration_ms": 7963.99299998302,
+      "cached": false
+    }
+  ],
+  "duration_ms": 9316.805200011004
+}

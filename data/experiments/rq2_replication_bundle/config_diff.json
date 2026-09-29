@@ -1,0 +1,6 @@
+{
+  "retrieval.mode": {
+    "run_1": "dense",
+    "run_2": "bm25"
+  }
+}

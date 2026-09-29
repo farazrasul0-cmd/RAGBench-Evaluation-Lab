@@ -76,7 +76,7 @@ def test_empirical_scifact_rq1_study(cli_runner: CliRunner, pipeline_workspace: 
     )
     assert reg_res.exit_code == 0, f"Registration failed: {reg_res.output}"
     assert "Dataset Version ID:" in reg_res.output
-    assert "Benchmark Queries:" in reg_res.output and "25" in reg_res.output
+    assert "Benchmark Queries:" in reg_res.output and "30" in reg_res.output
 
     ver_id = ""
     for line in reg_res.output.splitlines():
@@ -95,7 +95,7 @@ def test_empirical_scifact_rq1_study(cli_runner: CliRunner, pipeline_workspace: 
             stmt = select(BenchmarkVersion)
             bv = (await session.execute(stmt)).scalars().first()
             assert bv is not None
-            assert bv.query_count == 25
+            assert bv.query_count == 30
             assert bv.evaluation_protocol_version == DEFAULT_EVALUATION_PROTOCOL
             assert bv.metric_definition_version == DEFAULT_METRIC_PROTOCOL
         await engine.dispose()

@@ -1,0 +1,17 @@
+
+name: "RQ2 Retrieval Paradigm Generalization Reference Study"
+description: "Controlled study isolating retrieval topologies (Dense, BM25, Hybrid) with identical chunking and embedding."
+dataset:
+  dataset_id: "scifact_canonical"
+  dataset_version_id: "b7b48c60-96df-4eb3-be2b-e99d323d9486"
+parameters:
+  chunking:
+    strategy: "fixed"
+    chunk_size: 200
+    chunk_overlap: 20
+  retrieval:
+    mode: ["dense", "bm25", "hybrid"]
+    top_k: 5
+  evaluation:
+    metrics: ["recall", "mrr", "ndcg", "precision"]
+    k_values: [5]

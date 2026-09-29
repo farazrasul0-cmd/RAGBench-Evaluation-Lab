@@ -1,0 +1,2155 @@
+{
+  "comparison_id": "comp-5e75c042-3a8d993f",
+  "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+  "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+  "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+  "adjustment_method": "holm",
+  "metrics": {
+    "generation_latency_ms": {
+      "comparison_id": "comp-5e75c042-3a8d993f-generation_latency_ms",
+      "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+      "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+      "metric_name": "generation_latency_ms",
+      "k": null,
+      "alignment": {
+        "dataset_version_match": true,
+        "dataset_version_id_a": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_id_b": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_hash_a": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "dataset_version_hash_b": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "benchmark_match": true,
+        "benchmark_hash_a": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "benchmark_hash_b": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "query_set_match": true,
+        "query_set_hash_a": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "query_set_hash_b": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "metric_name": "generation_latency_ms",
+        "k_a": null,
+        "k_b": null,
+        "metric_match": true,
+        "k_match": true,
+        "protocol_match": true,
+        "evaluation_protocol_version_a": "ragbench-protocol-v1.0",
+        "evaluation_protocol_version_b": "ragbench-protocol-v1.0",
+        "metric_definition_version_a": "metrics-v1.0",
+        "metric_definition_version_b": "metrics-v1.0",
+        "n_total_a": 30,
+        "n_total_b": 30,
+        "n_paired": 30,
+        "missing_in_a": [],
+        "missing_in_b": [],
+        "paired_query_ids": [
+          "sf_q01",
+          "sf_q02",
+          "sf_q03",
+          "sf_q04",
+          "sf_q05",
+          "sf_q06",
+          "sf_q07",
+          "sf_q08",
+          "sf_q09",
+          "sf_q10",
+          "sf_q11",
+          "sf_q12",
+          "sf_q13",
+          "sf_q14",
+          "sf_q15",
+          "sf_q16",
+          "sf_q17",
+          "sf_q18",
+          "sf_q19",
+          "sf_q20",
+          "sf_q21",
+          "sf_q22",
+          "sf_q23",
+          "sf_q24",
+          "sf_q25",
+          "sf_q26",
+          "sf_q27",
+          "sf_q28",
+          "sf_q29",
+          "sf_q30"
+        ]
+      },
+      "mean_a": 0.024583326497425634,
+      "mean_b": 0.038863340159878135,
+      "mean_difference": 0.014280013662452498,
+      "std_difference": 0.1043045969970741,
+      "t_statistic": 0.7498696921887921,
+      "t_df": 29,
+      "raw_p_value": 0.4593738251447157,
+      "wilcoxon_statistic": 126.0,
+      "wilcoxon_pvalue": 0.029239381764105676,
+      "wilcoxon_n_nonzero": 30,
+      "wilcoxon_zero_count": 0,
+      "wilcoxon_method": "asymptotic",
+      "cohens_dz": 0.1369068485337523,
+      "ci95_lower": -0.024667962948386475,
+      "ci95_upper": 0.05322799027329147,
+      "adjustment_method": "holm",
+      "adjusted_p_value": 1.0,
+      "significance_level": "ns",
+      "raw_paired_observations": [
+        {
+          "query_id": "sf_q01",
+          "score_a": 0.023800006601959467,
+          "score_b": 0.0171000137925148,
+          "difference": -0.006699992809444666
+        },
+        {
+          "query_id": "sf_q02",
+          "score_a": 0.028799986466765404,
+          "score_b": 0.01610000617802143,
+          "difference": -0.012699980288743973
+        },
+        {
+          "query_id": "sf_q03",
+          "score_a": 0.01650000922381878,
+          "score_b": 0.014000048395246267,
+          "difference": -0.0024999608285725117
+        },
+        {
+          "query_id": "sf_q04",
+          "score_a": 0.014999997802078724,
+          "score_b": 0.019900035113096237,
+          "difference": 0.004900037311017513
+        },
+        {
+          "query_id": "sf_q05",
+          "score_a": 0.027099973522126675,
+          "score_b": 0.019900035113096237,
+          "difference": -0.0071999384090304375
+        },
+        {
+          "query_id": "sf_q06",
+          "score_a": 0.01869996776804328,
+          "score_b": 0.027399975806474686,
+          "difference": 0.008700008038431406
+        },
+        {
+          "query_id": "sf_q07",
+          "score_a": 0.017799960914999247,
+          "score_b": 0.02010003663599491,
+          "difference": 0.0023000757209956646
+        },
+        {
+          "query_id": "sf_q08",
+          "score_a": 0.016899954061955214,
+          "score_b": 0.02069998299703002,
+          "difference": 0.003800028935074806
+        },
+        {
+          "query_id": "sf_q09",
+          "score_a": 0.013400043826550245,
+          "score_b": 0.016700010746717453,
+          "difference": 0.0032999669201672077
+        },
+        {
+          "query_id": "sf_q10",
+          "score_a": 0.017200014553964138,
+          "score_b": 0.015300000086426735,
+          "difference": -0.001900014467537403
+        },
+        {
+          "query_id": "sf_q11",
+          "score_a": 0.02659996971487999,
+          "score_b": 0.016200006939470768,
+          "difference": -0.010399962775409222
+        },
+        {
+          "query_id": "sf_q12",
+          "score_a": 0.030700000934302807,
+          "score_b": 0.011299969628453255,
+          "difference": -0.019400031305849552
+        },
+        {
+          "query_id": "sf_q13",
+          "score_a": 0.025100016500800848,
+          "score_b": 0.0149000552482903,
+          "difference": -0.010199961252510548
+        },
+        {
+          "query_id": "sf_q14",
+          "score_a": 0.029199989512562752,
+          "score_b": 0.014999997802078724,
+          "difference": -0.014199991710484028
+        },
+        {
+          "query_id": "sf_q15",
+          "score_a": 0.029200047720223665,
+          "score_b": 0.01599994720891118,
+          "difference": -0.013200100511312485
+        },
+        {
+          "query_id": "sf_q16",
+          "score_a": 0.026500027161091566,
+          "score_b": 0.015400000847876072,
+          "difference": -0.011100026313215494
+        },
+        {
+          "query_id": "sf_q17",
+          "score_a": 0.02239999594166875,
+          "score_b": 0.015400000847876072,
+          "difference": -0.006999995093792677
+        },
+        {
+          "query_id": "sf_q18",
+          "score_a": 0.027999980375170708,
+          "score_b": 0.027800037059932947,
+          "difference": -0.00019994331523776054
+        },
+        {
+          "query_id": "sf_q19",
+          "score_a": 0.02659996971487999,
+          "score_b": 0.026600027922540903,
+          "difference": 5.820766091346741e-8
+        },
+        {
+          "query_id": "sf_q20",
+          "score_a": 0.021199986804276705,
+          "score_b": 0.020899984519928694,
+          "difference": -0.000300002284348011
+        },
+        {
+          "query_id": "sf_q21",
+          "score_a": 0.026799971237778664,
+          "score_b": 0.02540001878514886,
+          "difference": -0.0013999524526298046
+        },
+        {
+          "query_id": "sf_q22",
+          "score_a": 0.031000003218650818,
+          "score_b": 0.018900027498602867,
+          "difference": -0.01209997572004795
+        },
+        {
+          "query_id": "sf_q23",
+          "score_a": 0.022499996703118086,
+          "score_b": 0.019899976905435324,
+          "difference": -0.002600019797682762
+        },
+        {
+          "query_id": "sf_q24",
+          "score_a": 0.02889998722821474,
+          "score_b": 0.016700010746717453,
+          "difference": -0.012199976481497288
+        },
+        {
+          "query_id": "sf_q25",
+          "score_a": 0.026899971999228,
+          "score_b": 0.5920000257901847,
+          "difference": 0.5651000537909567
+        },
+        {
+          "query_id": "sf_q26",
+          "score_a": 0.025800021830946207,
+          "score_b": 0.024800014216452837,
+          "difference": -0.00100000761449337
+        },
+        {
+          "query_id": "sf_q27",
+          "score_a": 0.047200010158121586,
+          "score_b": 0.026699970476329327,
+          "difference": -0.02050003968179226
+        },
+        {
+          "query_id": "sf_q28",
+          "score_a": 0.02429995220154524,
+          "score_b": 0.026799971237778664,
+          "difference": 0.002500019036233425
+        },
+        {
+          "query_id": "sf_q29",
+          "score_a": 0.022799998987466097,
+          "score_b": 0.023300002794712782,
+          "difference": 0.000500003807246685
+        },
+        {
+          "query_id": "sf_q30",
+          "score_a": 0.020599982235580683,
+          "score_b": 0.0247000134550035,
+          "difference": 0.004100031219422817
+        }
+      ]
+    },
+    "latency_ms": {
+      "comparison_id": "comp-5e75c042-3a8d993f-latency_ms",
+      "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+      "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+      "metric_name": "latency_ms",
+      "k": null,
+      "alignment": {
+        "dataset_version_match": true,
+        "dataset_version_id_a": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_id_b": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_hash_a": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "dataset_version_hash_b": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "benchmark_match": true,
+        "benchmark_hash_a": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "benchmark_hash_b": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "query_set_match": true,
+        "query_set_hash_a": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "query_set_hash_b": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "metric_name": "latency_ms",
+        "k_a": null,
+        "k_b": null,
+        "metric_match": true,
+        "k_match": true,
+        "protocol_match": true,
+        "evaluation_protocol_version_a": "ragbench-protocol-v1.0",
+        "evaluation_protocol_version_b": "ragbench-protocol-v1.0",
+        "metric_definition_version_a": "metrics-v1.0",
+        "metric_definition_version_b": "metrics-v1.0",
+        "n_total_a": 30,
+        "n_total_b": 30,
+        "n_paired": 30,
+        "missing_in_a": [],
+        "missing_in_b": [],
+        "paired_query_ids": [
+          "sf_q01",
+          "sf_q02",
+          "sf_q03",
+          "sf_q04",
+          "sf_q05",
+          "sf_q06",
+          "sf_q07",
+          "sf_q08",
+          "sf_q09",
+          "sf_q10",
+          "sf_q11",
+          "sf_q12",
+          "sf_q13",
+          "sf_q14",
+          "sf_q15",
+          "sf_q16",
+          "sf_q17",
+          "sf_q18",
+          "sf_q19",
+          "sf_q20",
+          "sf_q21",
+          "sf_q22",
+          "sf_q23",
+          "sf_q24",
+          "sf_q25",
+          "sf_q26",
+          "sf_q27",
+          "sf_q28",
+          "sf_q29",
+          "sf_q30"
+        ]
+      },
+      "mean_a": 43.44717333248506,
+      "mean_b": 38.87723999990461,
+      "mean_difference": -4.569933332580452,
+      "std_difference": 15.49780815505732,
+      "t_statistic": -1.6151029535955783,
+      "t_df": 29,
+      "raw_p_value": 0.11711758790176496,
+      "wilcoxon_statistic": 174.0,
+      "wilcoxon_pvalue": 0.23288359665857605,
+      "wilcoxon_n_nonzero": 30,
+      "wilcoxon_zero_count": 0,
+      "wilcoxon_method": "asymptotic",
+      "cohens_dz": -0.2948761067925059,
+      "ci95_lower": -10.356910003986162,
+      "ci95_upper": 1.2170433388252588,
+      "adjustment_method": "holm",
+      "adjusted_p_value": 0.9369407032141197,
+      "significance_level": "ns",
+      "raw_paired_observations": [
+        {
+          "query_id": "sf_q01",
+          "score_a": 105.93499999959022,
+          "score_b": 44.83519995119423,
+          "difference": -61.09980004839599
+        },
+        {
+          "query_id": "sf_q02",
+          "score_a": 38.72000001138076,
+          "score_b": 36.06989997206256,
+          "difference": -2.650100039318204
+        },
+        {
+          "query_id": "sf_q03",
+          "score_a": 33.26190001098439,
+          "score_b": 32.598900026641786,
+          "difference": -0.6629999843426049
+        },
+        {
+          "query_id": "sf_q04",
+          "score_a": 29.073100013192743,
+          "score_b": 34.008099988568574,
+          "difference": 4.934999975375831
+        },
+        {
+          "query_id": "sf_q05",
+          "score_a": 31.113100005313754,
+          "score_b": 37.169799965340644,
+          "difference": 6.05669996002689
+        },
+        {
+          "query_id": "sf_q06",
+          "score_a": 33.5266999900341,
+          "score_b": 37.44039998855442,
+          "difference": 3.9136999985203147
+        },
+        {
+          "query_id": "sf_q07",
+          "score_a": 32.65030001057312,
+          "score_b": 36.67810000479221,
+          "difference": 4.0277999942190945
+        },
+        {
+          "query_id": "sf_q08",
+          "score_a": 29.481499979738146,
+          "score_b": 38.91420003492385,
+          "difference": 9.432700055185705
+        },
+        {
+          "query_id": "sf_q09",
+          "score_a": 27.098199992906302,
+          "score_b": 45.83190003177151,
+          "difference": 18.73370003886521
+        },
+        {
+          "query_id": "sf_q10",
+          "score_a": 36.377300042659044,
+          "score_b": 39.42580003058538,
+          "difference": 3.048499987926334
+        },
+        {
+          "query_id": "sf_q11",
+          "score_a": 49.0843000006862,
+          "score_b": 30.0392999779433,
+          "difference": -19.045000022742897
+        },
+        {
+          "query_id": "sf_q12",
+          "score_a": 53.86849999194965,
+          "score_b": 32.05859998706728,
+          "difference": -21.809900004882365
+        },
+        {
+          "query_id": "sf_q13",
+          "score_a": 54.41049998626113,
+          "score_b": 27.172199974302202,
+          "difference": -27.238300011958927
+        },
+        {
+          "query_id": "sf_q14",
+          "score_a": 46.35329998563975,
+          "score_b": 29.500800010282546,
+          "difference": -16.852499975357205
+        },
+        {
+          "query_id": "sf_q15",
+          "score_a": 48.275700013618916,
+          "score_b": 33.70669996365905,
+          "difference": -14.569000049959868
+        },
+        {
+          "query_id": "sf_q16",
+          "score_a": 37.95760002685711,
+          "score_b": 30.146999983116984,
+          "difference": -7.8106000437401235
+        },
+        {
+          "query_id": "sf_q17",
+          "score_a": 40.96199997002259,
+          "score_b": 34.212499973364174,
+          "difference": -6.749499996658415
+        },
+        {
+          "query_id": "sf_q18",
+          "score_a": 41.703199967741966,
+          "score_b": 40.37330002756789,
+          "difference": -1.329899940174073
+        },
+        {
+          "query_id": "sf_q19",
+          "score_a": 45.60479999054223,
+          "score_b": 41.73230001470074,
+          "difference": -3.8724999758414924
+        },
+        {
+          "query_id": "sf_q20",
+          "score_a": 39.29089999292046,
+          "score_b": 37.833700014743954,
+          "difference": -1.4571999781765044
+        },
+        {
+          "query_id": "sf_q21",
+          "score_a": 37.83110005315393,
+          "score_b": 28.898200020194054,
+          "difference": -8.932900032959878
+        },
+        {
+          "query_id": "sf_q22",
+          "score_a": 40.30539997620508,
+          "score_b": 34.759400004986674,
+          "difference": -5.545999971218407
+        },
+        {
+          "query_id": "sf_q23",
+          "score_a": 39.36680004699156,
+          "score_b": 36.69959999388084,
+          "difference": -2.6672000531107187
+        },
+        {
+          "query_id": "sf_q24",
+          "score_a": 58.89519996708259,
+          "score_b": 38.00429997500032,
+          "difference": -20.890899992082268
+        },
+        {
+          "query_id": "sf_q25",
+          "score_a": 60.180699976626784,
+          "score_b": 52.65119997784495,
+          "difference": -7.52949999878183
+        },
+        {
+          "query_id": "sf_q26",
+          "score_a": 62.463900016155094,
+          "score_b": 62.10740003734827,
+          "difference": -0.3564999788068235
+        },
+        {
+          "query_id": "sf_q27",
+          "score_a": 35.38069996284321,
+          "score_b": 49.59670000243932,
+          "difference": 14.21600003959611
+        },
+        {
+          "query_id": "sf_q28",
+          "score_a": 37.59689995786175,
+          "score_b": 46.30780004663393,
+          "difference": 8.710900088772178
+        },
+        {
+          "query_id": "sf_q29",
+          "score_a": 36.732800013851374,
+          "score_b": 46.95930000161752,
+          "difference": 10.226499987766147
+        },
+        {
+          "query_id": "sf_q30",
+          "score_a": 39.913800021167845,
+          "score_b": 50.58460001600906,
+          "difference": 10.670799994841218
+        }
+      ]
+    },
+    "mrr@5": {
+      "comparison_id": "comp-5e75c042-3a8d993f-mrr@5",
+      "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+      "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+      "metric_name": "mrr@5",
+      "k": 5,
+      "alignment": {
+        "dataset_version_match": true,
+        "dataset_version_id_a": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_id_b": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_hash_a": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "dataset_version_hash_b": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "benchmark_match": true,
+        "benchmark_hash_a": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "benchmark_hash_b": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "query_set_match": true,
+        "query_set_hash_a": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "query_set_hash_b": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "metric_name": "mrr@5",
+        "k_a": 5,
+        "k_b": 5,
+        "metric_match": true,
+        "k_match": true,
+        "protocol_match": true,
+        "evaluation_protocol_version_a": "ragbench-protocol-v1.0",
+        "evaluation_protocol_version_b": "ragbench-protocol-v1.0",
+        "metric_definition_version_a": "metrics-v1.0",
+        "metric_definition_version_b": "metrics-v1.0",
+        "n_total_a": 30,
+        "n_total_b": 30,
+        "n_paired": 30,
+        "missing_in_a": [],
+        "missing_in_b": [],
+        "paired_query_ids": [
+          "sf_q01",
+          "sf_q02",
+          "sf_q03",
+          "sf_q04",
+          "sf_q05",
+          "sf_q06",
+          "sf_q07",
+          "sf_q08",
+          "sf_q09",
+          "sf_q10",
+          "sf_q11",
+          "sf_q12",
+          "sf_q13",
+          "sf_q14",
+          "sf_q15",
+          "sf_q16",
+          "sf_q17",
+          "sf_q18",
+          "sf_q19",
+          "sf_q20",
+          "sf_q21",
+          "sf_q22",
+          "sf_q23",
+          "sf_q24",
+          "sf_q25",
+          "sf_q26",
+          "sf_q27",
+          "sf_q28",
+          "sf_q29",
+          "sf_q30"
+        ]
+      },
+      "mean_a": 0.9833333333333333,
+      "mean_b": 0.9833333333333333,
+      "mean_difference": 0.0,
+      "std_difference": 0.0,
+      "t_statistic": 0.0,
+      "t_df": 29,
+      "raw_p_value": 1.0,
+      "wilcoxon_statistic": 0.0,
+      "wilcoxon_pvalue": 1.0,
+      "wilcoxon_n_nonzero": 0,
+      "wilcoxon_zero_count": 30,
+      "wilcoxon_method": "degenerate_identical",
+      "cohens_dz": 0.0,
+      "ci95_lower": 0.0,
+      "ci95_upper": 0.0,
+      "adjustment_method": "holm",
+      "adjusted_p_value": 1.0,
+      "significance_level": "ns",
+      "raw_paired_observations": [
+        {
+          "query_id": "sf_q01",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q02",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q03",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q04",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q05",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q06",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q07",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q08",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q09",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q10",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q11",
+          "score_a": 0.5,
+          "score_b": 0.5,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q12",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q13",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q14",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q15",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q16",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q17",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q18",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q19",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q20",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q21",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q22",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q23",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q24",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q25",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q26",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q27",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q28",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q29",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q30",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        }
+      ]
+    },
+    "ndcg@5": {
+      "comparison_id": "comp-5e75c042-3a8d993f-ndcg@5",
+      "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+      "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+      "metric_name": "ndcg@5",
+      "k": 5,
+      "alignment": {
+        "dataset_version_match": true,
+        "dataset_version_id_a": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_id_b": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_hash_a": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "dataset_version_hash_b": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "benchmark_match": true,
+        "benchmark_hash_a": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "benchmark_hash_b": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "query_set_match": true,
+        "query_set_hash_a": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "query_set_hash_b": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "metric_name": "ndcg@5",
+        "k_a": 5,
+        "k_b": 5,
+        "metric_match": true,
+        "k_match": true,
+        "protocol_match": true,
+        "evaluation_protocol_version_a": "ragbench-protocol-v1.0",
+        "evaluation_protocol_version_b": "ragbench-protocol-v1.0",
+        "metric_definition_version_a": "metrics-v1.0",
+        "metric_definition_version_b": "metrics-v1.0",
+        "n_total_a": 30,
+        "n_total_b": 30,
+        "n_paired": 30,
+        "missing_in_a": [],
+        "missing_in_b": [],
+        "paired_query_ids": [
+          "sf_q01",
+          "sf_q02",
+          "sf_q03",
+          "sf_q04",
+          "sf_q05",
+          "sf_q06",
+          "sf_q07",
+          "sf_q08",
+          "sf_q09",
+          "sf_q10",
+          "sf_q11",
+          "sf_q12",
+          "sf_q13",
+          "sf_q14",
+          "sf_q15",
+          "sf_q16",
+          "sf_q17",
+          "sf_q18",
+          "sf_q19",
+          "sf_q20",
+          "sf_q21",
+          "sf_q22",
+          "sf_q23",
+          "sf_q24",
+          "sf_q25",
+          "sf_q26",
+          "sf_q27",
+          "sf_q28",
+          "sf_q29",
+          "sf_q30"
+        ]
+      },
+      "mean_a": 0.9876976584523819,
+      "mean_b": 0.9876976584523819,
+      "mean_difference": 0.0,
+      "std_difference": 0.0,
+      "t_statistic": 0.0,
+      "t_df": 29,
+      "raw_p_value": 1.0,
+      "wilcoxon_statistic": 0.0,
+      "wilcoxon_pvalue": 1.0,
+      "wilcoxon_n_nonzero": 0,
+      "wilcoxon_zero_count": 30,
+      "wilcoxon_method": "degenerate_identical",
+      "cohens_dz": 0.0,
+      "ci95_lower": 0.0,
+      "ci95_upper": 0.0,
+      "adjustment_method": "holm",
+      "adjusted_p_value": 1.0,
+      "significance_level": "ns",
+      "raw_paired_observations": [
+        {
+          "query_id": "sf_q01",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q02",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q03",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q04",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q05",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q06",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q07",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q08",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q09",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q10",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q11",
+          "score_a": 0.6309297535714575,
+          "score_b": 0.6309297535714575,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q12",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q13",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q14",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q15",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q16",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q17",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q18",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q19",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q20",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q21",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q22",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q23",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q24",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q25",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q26",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q27",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q28",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q29",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q30",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        }
+      ]
+    },
+    "precision@5": {
+      "comparison_id": "comp-5e75c042-3a8d993f-precision@5",
+      "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+      "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+      "metric_name": "precision@5",
+      "k": 5,
+      "alignment": {
+        "dataset_version_match": true,
+        "dataset_version_id_a": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_id_b": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_hash_a": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "dataset_version_hash_b": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "benchmark_match": true,
+        "benchmark_hash_a": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "benchmark_hash_b": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "query_set_match": true,
+        "query_set_hash_a": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "query_set_hash_b": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "metric_name": "precision@5",
+        "k_a": 5,
+        "k_b": 5,
+        "metric_match": true,
+        "k_match": true,
+        "protocol_match": true,
+        "evaluation_protocol_version_a": "ragbench-protocol-v1.0",
+        "evaluation_protocol_version_b": "ragbench-protocol-v1.0",
+        "metric_definition_version_a": "metrics-v1.0",
+        "metric_definition_version_b": "metrics-v1.0",
+        "n_total_a": 30,
+        "n_total_b": 30,
+        "n_paired": 30,
+        "missing_in_a": [],
+        "missing_in_b": [],
+        "paired_query_ids": [
+          "sf_q01",
+          "sf_q02",
+          "sf_q03",
+          "sf_q04",
+          "sf_q05",
+          "sf_q06",
+          "sf_q07",
+          "sf_q08",
+          "sf_q09",
+          "sf_q10",
+          "sf_q11",
+          "sf_q12",
+          "sf_q13",
+          "sf_q14",
+          "sf_q15",
+          "sf_q16",
+          "sf_q17",
+          "sf_q18",
+          "sf_q19",
+          "sf_q20",
+          "sf_q21",
+          "sf_q22",
+          "sf_q23",
+          "sf_q24",
+          "sf_q25",
+          "sf_q26",
+          "sf_q27",
+          "sf_q28",
+          "sf_q29",
+          "sf_q30"
+        ]
+      },
+      "mean_a": 0.21333333333333335,
+      "mean_b": 0.21333333333333335,
+      "mean_difference": 0.0,
+      "std_difference": 0.0,
+      "t_statistic": 0.0,
+      "t_df": 29,
+      "raw_p_value": 1.0,
+      "wilcoxon_statistic": 0.0,
+      "wilcoxon_pvalue": 1.0,
+      "wilcoxon_n_nonzero": 0,
+      "wilcoxon_zero_count": 30,
+      "wilcoxon_method": "degenerate_identical",
+      "cohens_dz": 0.0,
+      "ci95_lower": 0.0,
+      "ci95_upper": 0.0,
+      "adjustment_method": "holm",
+      "adjusted_p_value": 1.0,
+      "significance_level": "ns",
+      "raw_paired_observations": [
+        {
+          "query_id": "sf_q01",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q02",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q03",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q04",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q05",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q06",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q07",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q08",
+          "score_a": 0.4,
+          "score_b": 0.4,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q09",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q10",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q11",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q12",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q13",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q14",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q15",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q16",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q17",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q18",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q19",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q20",
+          "score_a": 0.4,
+          "score_b": 0.4,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q21",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q22",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q23",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q24",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q25",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q26",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q27",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q28",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q29",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q30",
+          "score_a": 0.2,
+          "score_b": 0.2,
+          "difference": 0.0
+        }
+      ]
+    },
+    "recall@5": {
+      "comparison_id": "comp-5e75c042-3a8d993f-recall@5",
+      "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+      "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+      "metric_name": "recall@5",
+      "k": 5,
+      "alignment": {
+        "dataset_version_match": true,
+        "dataset_version_id_a": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_id_b": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_hash_a": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "dataset_version_hash_b": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "benchmark_match": true,
+        "benchmark_hash_a": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "benchmark_hash_b": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "query_set_match": true,
+        "query_set_hash_a": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "query_set_hash_b": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "metric_name": "recall@5",
+        "k_a": 5,
+        "k_b": 5,
+        "metric_match": true,
+        "k_match": true,
+        "protocol_match": true,
+        "evaluation_protocol_version_a": "ragbench-protocol-v1.0",
+        "evaluation_protocol_version_b": "ragbench-protocol-v1.0",
+        "metric_definition_version_a": "metrics-v1.0",
+        "metric_definition_version_b": "metrics-v1.0",
+        "n_total_a": 30,
+        "n_total_b": 30,
+        "n_paired": 30,
+        "missing_in_a": [],
+        "missing_in_b": [],
+        "paired_query_ids": [
+          "sf_q01",
+          "sf_q02",
+          "sf_q03",
+          "sf_q04",
+          "sf_q05",
+          "sf_q06",
+          "sf_q07",
+          "sf_q08",
+          "sf_q09",
+          "sf_q10",
+          "sf_q11",
+          "sf_q12",
+          "sf_q13",
+          "sf_q14",
+          "sf_q15",
+          "sf_q16",
+          "sf_q17",
+          "sf_q18",
+          "sf_q19",
+          "sf_q20",
+          "sf_q21",
+          "sf_q22",
+          "sf_q23",
+          "sf_q24",
+          "sf_q25",
+          "sf_q26",
+          "sf_q27",
+          "sf_q28",
+          "sf_q29",
+          "sf_q30"
+        ]
+      },
+      "mean_a": 1.0,
+      "mean_b": 1.0,
+      "mean_difference": 0.0,
+      "std_difference": 0.0,
+      "t_statistic": 0.0,
+      "t_df": 29,
+      "raw_p_value": 1.0,
+      "wilcoxon_statistic": 0.0,
+      "wilcoxon_pvalue": 1.0,
+      "wilcoxon_n_nonzero": 0,
+      "wilcoxon_zero_count": 30,
+      "wilcoxon_method": "degenerate_identical",
+      "cohens_dz": 0.0,
+      "ci95_lower": 0.0,
+      "ci95_upper": 0.0,
+      "adjustment_method": "holm",
+      "adjusted_p_value": 1.0,
+      "significance_level": "ns",
+      "raw_paired_observations": [
+        {
+          "query_id": "sf_q01",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q02",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q03",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q04",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q05",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q06",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q07",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q08",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q09",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q10",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q11",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q12",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q13",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q14",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q15",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q16",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q17",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q18",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q19",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q20",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q21",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q22",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q23",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q24",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q25",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q26",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q27",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q28",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q29",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        },
+        {
+          "query_id": "sf_q30",
+          "score_a": 1.0,
+          "score_b": 1.0,
+          "difference": 0.0
+        }
+      ]
+    },
+    "retrieval_latency_ms": {
+      "comparison_id": "comp-5e75c042-3a8d993f-retrieval_latency_ms",
+      "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+      "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+      "metric_name": "retrieval_latency_ms",
+      "k": null,
+      "alignment": {
+        "dataset_version_match": true,
+        "dataset_version_id_a": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_id_b": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_hash_a": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "dataset_version_hash_b": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "benchmark_match": true,
+        "benchmark_hash_a": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "benchmark_hash_b": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "query_set_match": true,
+        "query_set_hash_a": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "query_set_hash_b": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "metric_name": "retrieval_latency_ms",
+        "k_a": null,
+        "k_b": null,
+        "metric_match": true,
+        "k_match": true,
+        "protocol_match": true,
+        "evaluation_protocol_version_a": "ragbench-protocol-v1.0",
+        "evaluation_protocol_version_b": "ragbench-protocol-v1.0",
+        "metric_definition_version_a": "metrics-v1.0",
+        "metric_definition_version_b": "metrics-v1.0",
+        "n_total_a": 30,
+        "n_total_b": 30,
+        "n_paired": 30,
+        "missing_in_a": [],
+        "missing_in_b": [],
+        "paired_query_ids": [
+          "sf_q01",
+          "sf_q02",
+          "sf_q03",
+          "sf_q04",
+          "sf_q05",
+          "sf_q06",
+          "sf_q07",
+          "sf_q08",
+          "sf_q09",
+          "sf_q10",
+          "sf_q11",
+          "sf_q12",
+          "sf_q13",
+          "sf_q14",
+          "sf_q15",
+          "sf_q16",
+          "sf_q17",
+          "sf_q18",
+          "sf_q19",
+          "sf_q20",
+          "sf_q21",
+          "sf_q22",
+          "sf_q23",
+          "sf_q24",
+          "sf_q25",
+          "sf_q26",
+          "sf_q27",
+          "sf_q28",
+          "sf_q29",
+          "sf_q30"
+        ]
+      },
+      "mean_a": 31.94779665597404,
+      "mean_b": 30.09795666633484,
+      "mean_difference": -1.8498399896391977,
+      "std_difference": 7.386167504401788,
+      "t_statistic": -1.3717521156901669,
+      "t_df": 29,
+      "raw_p_value": 0.18066076140478138,
+      "wilcoxon_statistic": 172.0,
+      "wilcoxon_pvalue": 0.21716550893157582,
+      "wilcoxon_n_nonzero": 30,
+      "wilcoxon_zero_count": 0,
+      "wilcoxon_method": "asymptotic",
+      "cohens_dz": -0.2504465256896469,
+      "ci95_lower": -4.607880262909698,
+      "ci95_upper": 0.908200283631303,
+      "adjustment_method": "holm",
+      "adjusted_p_value": 1.0,
+      "significance_level": "ns",
+      "raw_paired_observations": [
+        {
+          "query_id": "sf_q01",
+          "score_a": 47.06909996457398,
+          "score_b": 36.430700041819364,
+          "difference": -10.638399922754616
+        },
+        {
+          "query_id": "sf_q02",
+          "score_a": 30.282899970188737,
+          "score_b": 29.611699981614947,
+          "difference": -0.6711999885737896
+        },
+        {
+          "query_id": "sf_q03",
+          "score_a": 26.42419998301193,
+          "score_b": 26.80079999845475,
+          "difference": 0.3766000154428184
+        },
+        {
+          "query_id": "sf_q04",
+          "score_a": 23.48490001168102,
+          "score_b": 24.600900011137128,
+          "difference": 1.1159999994561076
+        },
+        {
+          "query_id": "sf_q05",
+          "score_a": 24.226100009400398,
+          "score_b": 30.59529996244237,
+          "difference": 6.369199953041971
+        },
+        {
+          "query_id": "sf_q06",
+          "score_a": 27.661100029945374,
+          "score_b": 26.83029999025166,
+          "difference": -0.8308000396937132
+        },
+        {
+          "query_id": "sf_q07",
+          "score_a": 25.324299989733845,
+          "score_b": 27.749700006097555,
+          "difference": 2.42540001636371
+        },
+        {
+          "query_id": "sf_q08",
+          "score_a": 23.73680000891909,
+          "score_b": 30.188900011125952,
+          "difference": 6.452100002206862
+        },
+        {
+          "query_id": "sf_q09",
+          "score_a": 21.600799984298646,
+          "score_b": 35.205200023483485,
+          "difference": 13.604400039184839
+        },
+        {
+          "query_id": "sf_q10",
+          "score_a": 29.236999980639666,
+          "score_b": 32.42810000665486,
+          "difference": 3.1911000260151923
+        },
+        {
+          "query_id": "sf_q11",
+          "score_a": 37.29979996569455,
+          "score_b": 23.878300038632005,
+          "difference": -13.421499927062541
+        },
+        {
+          "query_id": "sf_q12",
+          "score_a": 38.28280000016093,
+          "score_b": 27.216700022108853,
+          "difference": -11.06609997805208
+        },
+        {
+          "query_id": "sf_q13",
+          "score_a": 36.5610999870114,
+          "score_b": 20.940100017469376,
+          "difference": -15.620999969542027
+        },
+        {
+          "query_id": "sf_q14",
+          "score_a": 34.10330001497641,
+          "score_b": 24.2063999758102,
+          "difference": -9.896900039166212
+        },
+        {
+          "query_id": "sf_q15",
+          "score_a": 37.59439999703318,
+          "score_b": 26.557400007732213,
+          "difference": -11.036999989300966
+        },
+        {
+          "query_id": "sf_q16",
+          "score_a": 29.616400017403066,
+          "score_b": 24.788299982901663,
+          "difference": -4.828100034501404
+        },
+        {
+          "query_id": "sf_q17",
+          "score_a": 32.5400999863632,
+          "score_b": 28.349600033834577,
+          "difference": -4.190499952528626
+        },
+        {
+          "query_id": "sf_q18",
+          "score_a": 30.29899997636676,
+          "score_b": 30.971799977123737,
+          "difference": 0.672800000756979
+        },
+        {
+          "query_id": "sf_q19",
+          "score_a": 34.3579999753274,
+          "score_b": 31.872899970039725,
+          "difference": -2.485100005287677
+        },
+        {
+          "query_id": "sf_q20",
+          "score_a": 31.339699984528124,
+          "score_b": 29.379699961282313,
+          "difference": -1.9600000232458115
+        },
+        {
+          "query_id": "sf_q21",
+          "score_a": 26.435200008563697,
+          "score_b": 21.01189998211339,
+          "difference": -5.423300026450306
+        },
+        {
+          "query_id": "sf_q22",
+          "score_a": 29.683300002943724,
+          "score_b": 26.506600028369576,
+          "difference": -3.1766999745741487
+        },
+        {
+          "query_id": "sf_q23",
+          "score_a": 27.897499967366457,
+          "score_b": 27.152800001204014,
+          "difference": -0.7446999661624432
+        },
+        {
+          "query_id": "sf_q24",
+          "score_a": 43.46419998910278,
+          "score_b": 30.553099990356714,
+          "difference": -12.911099998746067
+        },
+        {
+          "query_id": "sf_q25",
+          "score_a": 40.52779998164624,
+          "score_b": 38.10649999650195,
+          "difference": -2.4212999851442873
+        },
+        {
+          "query_id": "sf_q26",
+          "score_a": 53.180099988821894,
+          "score_b": 46.40379996271804,
+          "difference": -6.776300026103854
+        },
+        {
+          "query_id": "sf_q27",
+          "score_a": 26.6449999762699,
+          "score_b": 35.037600027862936,
+          "difference": 8.392600051593035
+        },
+        {
+          "query_id": "sf_q28",
+          "score_a": 29.708699963521212,
+          "score_b": 34.874700009822845,
+          "difference": 5.166000046301633
+        },
+        {
+          "query_id": "sf_q29",
+          "score_a": 28.31619995413348,
+          "score_b": 36.79709997959435,
+          "difference": 8.480900025460869
+        },
+        {
+          "query_id": "sf_q30",
+          "score_a": 31.534100009594113,
+          "score_b": 37.89179999148473,
+          "difference": 6.357699981890619
+        }
+      ]
+    },
+    "total_latency_ms": {
+      "comparison_id": "comp-5e75c042-3a8d993f-total_latency_ms",
+      "run_a_id": "5e75c042-5e2b-4296-9945-fff1917a039b",
+      "run_b_id": "3a8d993f-4605-491b-8d9e-91168f9e68d8",
+      "dataset_version_id": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+      "metric_name": "total_latency_ms",
+      "k": null,
+      "alignment": {
+        "dataset_version_match": true,
+        "dataset_version_id_a": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_id_b": "b7b48c60-96df-4eb3-be2b-e99d323d9486",
+        "dataset_version_hash_a": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "dataset_version_hash_b": "ffa200bad7c8fe463b22e66aea80a4f5ce0e9e43674ad12e67d88614cd74fef1",
+        "benchmark_match": true,
+        "benchmark_hash_a": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "benchmark_hash_b": "479ed8d699c6f8ea60bdd0cc8ddeae3798e840d26640acecff444555ab4dbda6",
+        "query_set_match": true,
+        "query_set_hash_a": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "query_set_hash_b": "5fb4540fab225c2dc28fbdcf267f98629504855e54ae042319c052597e209bee",
+        "metric_name": "total_latency_ms",
+        "k_a": null,
+        "k_b": null,
+        "metric_match": true,
+        "k_match": true,
+        "protocol_match": true,
+        "evaluation_protocol_version_a": "ragbench-protocol-v1.0",
+        "evaluation_protocol_version_b": "ragbench-protocol-v1.0",
+        "metric_definition_version_a": "metrics-v1.0",
+        "metric_definition_version_b": "metrics-v1.0",
+        "n_total_a": 30,
+        "n_total_b": 30,
+        "n_paired": 30,
+        "missing_in_a": [],
+        "missing_in_b": [],
+        "paired_query_ids": [
+          "sf_q01",
+          "sf_q02",
+          "sf_q03",
+          "sf_q04",
+          "sf_q05",
+          "sf_q06",
+          "sf_q07",
+          "sf_q08",
+          "sf_q09",
+          "sf_q10",
+          "sf_q11",
+          "sf_q12",
+          "sf_q13",
+          "sf_q14",
+          "sf_q15",
+          "sf_q16",
+          "sf_q17",
+          "sf_q18",
+          "sf_q19",
+          "sf_q20",
+          "sf_q21",
+          "sf_q22",
+          "sf_q23",
+          "sf_q24",
+          "sf_q25",
+          "sf_q26",
+          "sf_q27",
+          "sf_q28",
+          "sf_q29",
+          "sf_q30"
+        ]
+      },
+      "mean_a": 43.44717333248506,
+      "mean_b": 38.87723999990461,
+      "mean_difference": -4.569933332580452,
+      "std_difference": 15.49780815505732,
+      "t_statistic": -1.6151029535955783,
+      "t_df": 29,
+      "raw_p_value": 0.11711758790176496,
+      "wilcoxon_statistic": 174.0,
+      "wilcoxon_pvalue": 0.23288359665857605,
+      "wilcoxon_n_nonzero": 30,
+      "wilcoxon_zero_count": 0,
+      "wilcoxon_method": "asymptotic",
+      "cohens_dz": -0.2948761067925059,
+      "ci95_lower": -10.356910003986162,
+      "ci95_upper": 1.2170433388252588,
+      "adjustment_method": "holm",
+      "adjusted_p_value": 0.9369407032141197,
+      "significance_level": "ns",
+      "raw_paired_observations": [
+        {
+          "query_id": "sf_q01",
+          "score_a": 105.93499999959022,
+          "score_b": 44.83519995119423,
+          "difference": -61.09980004839599
+        },
+        {
+          "query_id": "sf_q02",
+          "score_a": 38.72000001138076,
+          "score_b": 36.06989997206256,
+          "difference": -2.650100039318204
+        },
+        {
+          "query_id": "sf_q03",
+          "score_a": 33.26190001098439,
+          "score_b": 32.598900026641786,
+          "difference": -0.6629999843426049
+        },
+        {
+          "query_id": "sf_q04",
+          "score_a": 29.073100013192743,
+          "score_b": 34.008099988568574,
+          "difference": 4.934999975375831
+        },
+        {
+          "query_id": "sf_q05",
+          "score_a": 31.113100005313754,
+          "score_b": 37.169799965340644,
+          "difference": 6.05669996002689
+        },
+        {
+          "query_id": "sf_q06",
+          "score_a": 33.5266999900341,
+          "score_b": 37.44039998855442,
+          "difference": 3.9136999985203147
+        },
+        {
+          "query_id": "sf_q07",
+          "score_a": 32.65030001057312,
+          "score_b": 36.67810000479221,
+          "difference": 4.0277999942190945
+        },
+        {
+          "query_id": "sf_q08",
+          "score_a": 29.481499979738146,
+          "score_b": 38.91420003492385,
+          "difference": 9.432700055185705
+        },
+        {
+          "query_id": "sf_q09",
+          "score_a": 27.098199992906302,
+          "score_b": 45.83190003177151,
+          "difference": 18.73370003886521
+        },
+        {
+          "query_id": "sf_q10",
+          "score_a": 36.377300042659044,
+          "score_b": 39.42580003058538,
+          "difference": 3.048499987926334
+        },
+        {
+          "query_id": "sf_q11",
+          "score_a": 49.0843000006862,
+          "score_b": 30.0392999779433,
+          "difference": -19.045000022742897
+        },
+        {
+          "query_id": "sf_q12",
+          "score_a": 53.86849999194965,
+          "score_b": 32.05859998706728,
+          "difference": -21.809900004882365
+        },
+        {
+          "query_id": "sf_q13",
+          "score_a": 54.41049998626113,
+          "score_b": 27.172199974302202,
+          "difference": -27.238300011958927
+        },
+        {
+          "query_id": "sf_q14",
+          "score_a": 46.35329998563975,
+          "score_b": 29.500800010282546,
+          "difference": -16.852499975357205
+        },
+        {
+          "query_id": "sf_q15",
+          "score_a": 48.275700013618916,
+          "score_b": 33.70669996365905,
+          "difference": -14.569000049959868
+        },
+        {
+          "query_id": "sf_q16",
+          "score_a": 37.95760002685711,
+          "score_b": 30.146999983116984,
+          "difference": -7.8106000437401235
+        },
+        {
+          "query_id": "sf_q17",
+          "score_a": 40.96199997002259,
+          "score_b": 34.212499973364174,
+          "difference": -6.749499996658415
+        },
+        {
+          "query_id": "sf_q18",
+          "score_a": 41.703199967741966,
+          "score_b": 40.37330002756789,
+          "difference": -1.329899940174073
+        },
+        {
+          "query_id": "sf_q19",
+          "score_a": 45.60479999054223,
+          "score_b": 41.73230001470074,
+          "difference": -3.8724999758414924
+        },
+        {
+          "query_id": "sf_q20",
+          "score_a": 39.29089999292046,
+          "score_b": 37.833700014743954,
+          "difference": -1.4571999781765044
+        },
+        {
+          "query_id": "sf_q21",
+          "score_a": 37.83110005315393,
+          "score_b": 28.898200020194054,
+          "difference": -8.932900032959878
+        },
+        {
+          "query_id": "sf_q22",
+          "score_a": 40.30539997620508,
+          "score_b": 34.759400004986674,
+          "difference": -5.545999971218407
+        },
+        {
+          "query_id": "sf_q23",
+          "score_a": 39.36680004699156,
+          "score_b": 36.69959999388084,
+          "difference": -2.6672000531107187
+        },
+        {
+          "query_id": "sf_q24",
+          "score_a": 58.89519996708259,
+          "score_b": 38.00429997500032,
+          "difference": -20.890899992082268
+        },
+        {
+          "query_id": "sf_q25",
+          "score_a": 60.180699976626784,
+          "score_b": 52.65119997784495,
+          "difference": -7.52949999878183
+        },
+        {
+          "query_id": "sf_q26",
+          "score_a": 62.463900016155094,
+          "score_b": 62.10740003734827,
+          "difference": -0.3564999788068235
+        },
+        {
+          "query_id": "sf_q27",
+          "score_a": 35.38069996284321,
+          "score_b": 49.59670000243932,
+          "difference": 14.21600003959611
+        },
+        {
+          "query_id": "sf_q28",
+          "score_a": 37.59689995786175,
+          "score_b": 46.30780004663393,
+          "difference": 8.710900088772178
+        },
+        {
+          "query_id": "sf_q29",
+          "score_a": 36.732800013851374,
+          "score_b": 46.95930000161752,
+          "difference": 10.226499987766147
+        },
+        {
+          "query_id": "sf_q30",
+          "score_a": 39.913800021167845,
+          "score_b": 50.58460001600906,
+          "difference": 10.670799994841218
+        }
+      ]
+    }
+  },
+  "warmup_queries_excluded": 0,
+  "metadata": {}
+}

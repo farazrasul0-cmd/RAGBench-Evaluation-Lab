@@ -1,0 +1,1 @@
+Ribosome biogenesis represents a major metabolic consumer, tightly coupled to RNA polymerase I transcription of ribosomal DNA. Disruption of rRNA synthesis induces nucleolar stress, releasing free ribosomal proteins RPL11 and RPL5 to bind and sequester MDM2, thereby preventing p53 ubiquitination and provoking cell cycle arrest or apoptotic death in transformed cells.

@@ -215,7 +215,7 @@ def register_command(
     if strategy_lower == "recursive":
         chunker = RecursiveCharacterChunker(chunk_size=chunk_size, chunk_overlap=overlap)
     elif strategy_lower == "sentence":
-        chunker = SentenceBoundaryChunker()
+        chunker = SentenceBoundaryChunker(chunk_size=chunk_size, chunk_overlap=overlap)
     else:
         chunker = FixedTokenChunker(chunk_size=chunk_size, chunk_overlap=overlap)
 

@@ -8,9 +8,14 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.protocols import DEFAULT_EVALUATION_PROTOCOL, DEFAULT_METRIC_PROTOCOL
+from app.db.repositories.benchmark import BenchmarkRepository
 from app.db.repositories.dataset import DatasetRepository
 from app.db.repositories.experiment import ExperimentRepository
 from app.db.repositories.query_trace import QueryTraceRepository
+from app.engine.chunkers.base import BaseChunker
+from app.engine.chunkers.fixed_token import FixedTokenChunker
+from app.engine.chunkers.recursive import RecursiveCharacterChunker
+from app.engine.chunkers.sentence import SentenceBoundaryChunker
 from app.engine.embeddings.base import BaseEmbeddingProvider
 from app.engine.metrics.citation import evaluate_citations
 from app.engine.metrics.generation import (
@@ -30,7 +35,9 @@ from app.engine.query_transforms.base import BaseLLMClient
 from app.engine.retrievers.hybrid import reciprocal_rank_fusion
 from app.engine.runner.component_factory import build_pipeline_components
 from app.engine.runner.models import EvaluationQuery, SingleRunResult
+from app.schemas.benchmark import BenchmarkQuerySet
 from app.schemas.chunk import DocumentChunk
+from app.schemas.document import RawDocument
 from app.schemas.experiment import PipelineConfig
 
 
@@ -113,22 +120,77 @@ class SingleRunExecutor:
         await session.commit()
 
         # 4. Instantiate and wire Phase A-E pipeline components
+        active_chunks = corpus_chunks
+        active_queries = queries
+        active_validate_refs = validate_chunk_references
+
+        bench_hash = getattr(experiment, "benchmark_hash", None)
+        if bench_hash is not None and pipeline_config.chunking is not None:
+            c_strategy = pipeline_config.chunking.strategy.lower()
+            c_size = pipeline_config.chunking.chunk_size
+            c_overlap = pipeline_config.chunking.chunk_overlap
+            overlap = max(0, min(c_overlap, c_size - 1)) if c_size > 1 else 0
+
+            meta = dataset_version.metadata_json or {}
+            base_strategy = str(meta.get("chunking_strategy", "")).lower()
+            base_size = meta.get("chunk_size")
+
+            strategy_differs = bool(base_strategy and c_strategy != base_strategy)
+            size_differs = bool(base_size is not None and c_size != base_size)
+
+            if strategy_differs or size_differs:
+                docs = await dataset_repo.get_documents(dataset_ver_id)
+                if docs:
+                    chunker: BaseChunker
+                    if c_strategy == "recursive":
+                        chunker = RecursiveCharacterChunker(
+                            chunk_size=c_size, chunk_overlap=overlap
+                        )
+                    elif c_strategy == "sentence":
+                        chunker = SentenceBoundaryChunker(chunk_size=c_size, chunk_overlap=overlap)
+                    else:
+                        chunker = FixedTokenChunker(chunk_size=c_size, chunk_overlap=overlap)
+
+                    dynamic_chunks: list[DocumentChunk] = []
+                    for d in docs:
+                        raw_doc = RawDocument.create(
+                            filename=d.filename, content=d.content, doc_id=d.id
+                        )
+                        dynamic_chunks.extend(chunker.chunk(raw_doc))
+
+                    if dynamic_chunks:
+                        active_chunks = dynamic_chunks
+                        active_validate_refs = False
+
+                        bench_repo = BenchmarkRepository(session)
+                        b_ver = await bench_repo.get_benchmark_by_hash(bench_hash)
+                        if b_ver:
+                            from app.engine.benchmark.resolver import GroundTruthChunkResolver
+
+                            b_set = BenchmarkQuerySet(**b_ver.benchmark_data)
+                            resolver = GroundTruthChunkResolver(
+                                allow_unresolved_passages=b_ver.allow_unresolved_passages
+                            )
+                            active_queries = resolver.resolve_benchmark(
+                                benchmark=b_set, chunks=active_chunks
+                            )
+
         components = build_pipeline_components(
             config=pipeline_config,
-            corpus_chunks=corpus_chunks,
+            corpus_chunks=active_chunks,
             llm_client=llm_client,
             embedding_provider=embedding_provider,
         )
 
         # Maintain explicit chunk-to-document ID mapping to guarantee chunk_id != doc_id
-        chunk_to_doc_map = {c.chunk_id: c.doc_id for c in corpus_chunks}
+        chunk_to_doc_map = {c.chunk_id: c.doc_id for c in active_chunks}
 
         # 5. Query execution loop with per-query atomic transactions
         all_metric_values: dict[str, list[float]] = defaultdict(list)
         completed_queries = 0
         failed_queries = 0
 
-        for q in queries:
+        for q in active_queries:
             q_start = time.perf_counter()
             try:
                 # 5a. Query Transformation
@@ -452,7 +514,7 @@ class SingleRunExecutor:
                         packed_context=packed_context_data,
                         generation_result=generation_data,
                         metric_results=metric_results_data,
-                        validate_chunk_references=validate_chunk_references,
+                        validate_chunk_references=active_validate_refs,
                     )
                 await session.commit()
                 completed_queries += 1

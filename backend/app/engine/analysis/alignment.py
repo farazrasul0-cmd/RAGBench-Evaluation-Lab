@@ -77,10 +77,13 @@ class AlignmentValidator:
             pass
 
         if ds_ver_a and ds_ver_b and ds_ver_a != ds_ver_b:
-            raise IncompatibleRunsError(
-                f"Runs are not statistically comparable: dataset_version_id differs. "
-                f"Run A evaluates '{ds_ver_a}' while Run B evaluates '{ds_ver_b}'."
-            )
+            if ds_hash_a and ds_hash_b and ds_hash_a == ds_hash_b:
+                pass
+            else:
+                raise IncompatibleRunsError(
+                    f"Runs are not statistically comparable: dataset_version_id differs. "
+                    f"Run A evaluates '{ds_ver_a}' while Run B evaluates '{ds_ver_b}'."
+                )
 
         if ds_hash_a and ds_hash_b and ds_hash_a != ds_hash_b:
             raise IncompatibleRunsError(
