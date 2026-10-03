@@ -1,0 +1,13 @@
+{
+  "isolated_variable": "retrieval.strategy ('dense' vs 'bm25' vs 'hybrid')",
+  "controlled_variable": "modality ('EN-EN' vs 'BN-BN' vs 'EN-BN' vs 'BN-EN')",
+  "fixed_parameters": {
+    "corpus_documents": 50,
+    "matched_information_units": 25,
+    "chunking": "Fixed Token (200 tokens, 20 overlap)",
+    "embedding_model": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "embedding_provider": "fastembed (ONNX runtime, IS_MOCK=False)",
+    "top_k": 5,
+    "protocol": "ragbench-protocol-v1.0"
+  }
+}

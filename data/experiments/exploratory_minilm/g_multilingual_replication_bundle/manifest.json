@@ -1,0 +1,38 @@
+{
+  "bundle_version": "ragbench-replication-v1.0",
+  "phase": "Phase G (RQ3 Multilingual Evaluation)",
+  "evaluation_protocol_version": "ragbench-protocol-v1.0",
+  "metric_definition_version": "metrics-v1.0",
+  "runs": {
+    "bm25_BN-BN": "2224cb4f-2de3-46bf-ae3b-e2f9fc9947d8",
+    "bm25_BN-EN": "ab560e3f-d7de-4a5d-82bc-1202b1f419e7",
+    "bm25_EN-BN": "9f91f463-fa9c-4734-a7a1-2f3f511db195",
+    "bm25_EN-EN": "883c1374-f53b-473d-8255-34780747f609",
+    "dense_BN-BN": "c0cf1141-6111-4eb5-9096-e45e20a24c22",
+    "dense_BN-EN": "461681f8-c262-4854-8f78-1e0bd314460e",
+    "dense_EN-BN": "ee0cdb99-f942-4350-a31f-ffb1ec7bec46",
+    "dense_EN-EN": "7543a5ce-9d33-4305-a115-40f729d24b14",
+    "hybrid_BN-BN": "056fb1a1-8343-4710-a5d8-a16d1a5c8046",
+    "hybrid_BN-EN": "33161a79-19e1-4cd8-ab81-526d82249a2c",
+    "hybrid_EN-BN": "2921706b-eed0-42d7-8a0d-1f65fe9d0428",
+    "hybrid_EN-EN": "da6fd01f-2401-4f61-b60c-635b75555b4e"
+  },
+  "embedding_configuration": {
+    "provider": "fastembed",
+    "model_identifier": "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2",
+    "model_revision": "qdrant/paraphrase-multilingual-MiniLM-L12-v2-onnx-Q",
+    "embedding_dimension": 384,
+    "normalize_embeddings": true,
+    "similarity_metric": "cosine",
+    "query_instruction": null,
+    "document_instruction": null,
+    "IS_MOCK": false
+  },
+  "chunking": {
+    "strategy": "fixed",
+    "chunk_size": 200,
+    "chunk_overlap": 20
+  },
+  "corpus": "data/benchmarks/multilingual_bengali_english/corpus (50 parallel documents)",
+  "benchmark_qa": "25 matched information units across 4 modalities = 100 QA instances"
+}

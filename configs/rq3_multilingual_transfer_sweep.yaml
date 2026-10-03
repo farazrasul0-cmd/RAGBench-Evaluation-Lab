@@ -43,16 +43,16 @@ chunking:
   chunk_size: 200
   chunk_overlap: 20
 
-# Amendment 2: frozen embedding configuration (all fields explicit)
+# Amendment 2: frozen embedding configuration (all 8 fields explicit)
 embedding:
   model_identifier: "BAAI/bge-m3"
-  model_revision: null          # record exact revision when available at run time
+  model_revision: "5617a9f61b028005a4858fdac845db406aefb181"
   embedding_dimension: 1024
   normalize_embeddings: true
-  embedding_provider: "fastembed"
+  embedding_provider: "sentence_transformers"
   similarity_metric: "cosine"
-  query_instruction: null       # bge-m3 uses symmetric encoding — no prefix
-  document_instruction: null    # bge-m3 uses symmetric encoding — no prefix
+  query_instruction: null       # bge-m3 uses symmetric encoding - no prefix
+  document_instruction: null    # bge-m3 uses symmetric encoding - no prefix
 
 top_k: 5
 

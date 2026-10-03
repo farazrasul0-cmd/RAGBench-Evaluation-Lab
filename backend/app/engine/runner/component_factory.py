@@ -94,6 +94,7 @@ def build_pipeline_components(
         emb = embedding_provider or get_embedding_provider(
             provider=config.embedding.provider,
             model_name=config.embedding.model_name,
+            dimension=config.embedding.dimension,
         )
         vector_store = QdrantVectorStore(location=":memory:")
         clean_ds_id = config.dataset.dataset_id.replace("-", "_")
