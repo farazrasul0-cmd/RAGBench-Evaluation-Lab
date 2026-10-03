@@ -1,0 +1,33 @@
+\begin{table*}[t]
+\centering
+\small
+\begin{tabular}{llcccccc}
+\toprule
+\textbf{Metric} & \textbf{Paradigm} & \textbf{Mono Mean} & \textbf{Cross Mean} & \textbf{Transfer Penalty ($\bar{\Delta}$)} & \textbf{95\% CI} & \textbf{Wilcoxon $W$} & \textbf{Cohen's $d_z$} \\
+\midrule
+\multicolumn{8}{l}{\textit{Direction: English Query $\to$ Bengali Documents (EN$\to$BN)}} \\
+recall@5 & Dense & 0.980 & 0.078 & +0.902*** & [+0.85, +0.96] & 0.0 & +6.94 \\
+recall@5 & Bm25 & 0.980 & 0.002 & +0.978*** & [+0.94, +1.02] & 0.0 & +9.80 \\
+recall@5 & Hybrid & 0.980 & 0.021 & +0.959*** & [+0.91, +1.00] & 0.0 & +8.78 \\
+mrr@5 & Dense & 1.000 & 0.263 & +0.737*** & [+0.66, +0.81] & 0.0 & +3.92 \\
+mrr@5 & Bm25 & 1.000 & 0.027 & +0.973*** & [+0.94, +1.01] & 0.0 & +10.55 \\
+mrr@5 & Hybrid & 1.000 & 0.081 & +0.919*** & [+0.85, +0.98] & 0.0 & +5.76 \\
+ndcg@5 & Dense & 0.985 & 0.197 & +0.787*** & [+0.71, +0.86] & 0.0 & +4.31 \\
+ndcg@5 & Bm25 & 0.985 & 0.014 & +0.971*** & [+0.93, +1.01] & 0.0 & +11.03 \\
+ndcg@5 & Hybrid & 0.985 & 0.051 & +0.933*** & [+0.88, +0.98] & 0.0 & +7.76 \\
+\midrule
+\multicolumn{8}{l}{\textit{Direction: Bengali Query $\to$ English Documents (BN$\to$EN)}} \\
+recall@5 & Dense & 0.097 & 0.040 & +0.057** & [-0.03, +0.14] & 21.0 & +0.27 \\
+recall@5 & Bm25 & 0.186 & 0.040 & +0.146*** & [+0.04, +0.25] & 25.0 & +0.59 \\
+recall@5 & Hybrid & 0.153 & 0.040 & +0.113*** & [+0.02, +0.20] & 24.0 & +0.51 \\
+mrr@5 & Dense & 0.545 & 0.013 & +0.531*** & [+0.38, +0.69] & 0.0 & +1.43 \\
+mrr@5 & Bm25 & 1.000 & 0.010 & +0.990*** & [+0.97, +1.01] & 0.0 & +19.80 \\
+mrr@5 & Hybrid & 0.920 & 0.010 & +0.910*** & [+0.81, +1.01] & 0.0 & +3.82 \\
+ndcg@5 & Dense & 0.449 & 0.020 & +0.429*** & [+0.30, +0.56] & 0.0 & +1.36 \\
+ndcg@5 & Bm25 & 0.766 & 0.017 & +0.748*** & [+0.67, +0.83] & 0.0 & +4.00 \\
+ndcg@5 & Hybrid & 0.709 & 0.017 & +0.691*** & [+0.58, +0.80] & 0.0 & +2.57 \\
+\bottomrule
+\end{tabular}
+\caption{RQ3 Multilingual Retrieval Transfer Penalty Analysis across $N=25$ Matched Information Units.}
+\label{tab:rq3_transfer_penalty}
+\end{table*}
