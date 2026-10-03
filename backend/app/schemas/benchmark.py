@@ -2,7 +2,7 @@
 
 import hashlib
 import json
-from typing import Any
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field
 
@@ -14,6 +14,12 @@ class GroundTruthPassage(BaseModel):
 
     This representation is strictly chunking-independent: it references the source document
     and text snippet / character span, never a specific chunking configuration ID.
+
+    Offset invariant (Phase G Amendment 1):
+        ``start_char`` and ``end_char`` are always coordinates into the immutable raw
+        document text as stored on disk.  Unicode normalization views produced by
+        ``normalize_bengali_text`` / ``get_normalization_view`` must never be used to
+        reinterpret or mutate these offsets.
     """
 
     doc_id: str = Field(description="Document ID or filename containing passage in the corpus")
@@ -29,7 +35,12 @@ class GroundTruthPassage(BaseModel):
 
 
 class BenchmarkQuery(BaseModel):
-    """An individual standardized benchmark evaluation question."""
+    """An individual standardized benchmark evaluation question.
+
+    Phase G extensions add multilingual metadata fields that support cross-lingual
+    transfer studies.  All fields are optional to maintain full backward compatibility
+    with Phase F7/F8 benchmarks that do not carry language-pair annotations.
+    """
 
     query_id: str = Field(description="Unique benchmark query identifier")
     query: str = Field(description="Question / query text")
@@ -39,8 +50,41 @@ class BenchmarkQuery(BaseModel):
         description="Authoritative source passages required to answer the query",
     )
     domain: str = Field(default="general", description="Subject matter domain")
-    language: str = Field(default="en", description="ISO 639-1 language code")
+    language: str = Field(default="en", description="ISO 639-1 language code of the query")
     difficulty: str = Field(default="medium", description="Subjective difficulty rating")
+
+    # --- Phase G: Multilingual transfer metadata (all optional / backward-compatible) ---
+    information_unit_id: str | None = Field(
+        default=None,
+        description=(
+            "Groups matched parallel query/document pairs that represent the same semantic "
+            "information need across languages.  This is the statistical unit for cross-lingual "
+            "transfer comparisons."
+        ),
+    )
+    translation_pair_id: str | None = Field(
+        default=None,
+        description=(
+            "Links the English document to its Bengali parallel counterpart for a given "
+            "information unit."
+        ),
+    )
+    modality: Literal["EN-EN", "BN-BN", "EN-BN", "BN-EN"] | None = Field(
+        default=None,
+        description=(
+            "Retrieval modality: <query-language>-<document-language>.  "
+            "EN-EN = monolingual English, BN-BN = monolingual Bengali, "
+            "EN-BN = English query / Bengali documents, BN-EN = Bengali query / English documents."
+        ),
+    )
+    query_language: str | None = Field(
+        default=None, description="ISO 639-1 language code of the query (e.g. 'en', 'bn')"
+    )
+    document_language: str | None = Field(
+        default=None,
+        description="ISO 639-1 language code of the target documents (e.g. 'en', 'bn')",
+    )
+
     metadata: dict[str, Any] = Field(default_factory=dict)
 
 

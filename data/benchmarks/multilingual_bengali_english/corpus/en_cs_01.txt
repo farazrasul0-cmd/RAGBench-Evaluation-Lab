@@ -1,0 +1,1 @@
+Deep learning architectures utilize multiple hidden artificial neural layers to learn hierarchical representations from raw input data. Backpropagation combined with stochastic gradient descent calculates parameter gradients through the chain rule of calculus, enabling the training of models with billions of parameters on graphics processing units.

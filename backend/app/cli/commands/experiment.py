@@ -25,6 +25,7 @@ from app.engine.analysis.export import (
     escape_latex,
 )
 from app.engine.analysis.statistics import StatisticalComparator
+from app.engine.analysis.transfer import LanguageTransferAnalyzer
 from app.engine.benchmark.resolver import GroundTruthChunkResolver
 from app.engine.orchestrator.cartesian import CartesianExpander
 from app.engine.orchestrator.dry_run import DryRunPlanner
@@ -33,6 +34,7 @@ from app.engine.runner.models import EvaluationQuery, MatrixRunResult
 from app.schemas.benchmark import BenchmarkQuerySet
 from app.schemas.chunk import DocumentChunk
 from app.schemas.experiment import ExperimentConfig, PipelineConfig
+from app.schemas.transfer import LanguageTransferReport
 
 
 @click.group(name="experiment")
@@ -365,6 +367,7 @@ def show_command(run_id: str, query_id: str | None, full: bool, db_url: str | No
 
     async def _show() -> int:
         engine = get_async_engine(db_url)
+        await init_db(engine)
         session_factory = get_session_factory(engine)
 
         async with session_factory() as session:
@@ -522,6 +525,7 @@ def compare_command(
 
     async def _compare() -> int:
         engine = get_async_engine(db_url)
+        await init_db(engine)
         session_factory = get_session_factory(engine)
 
         async with session_factory() as session:
@@ -813,6 +817,7 @@ def export_command(
 
     async def _export() -> int:
         engine = get_async_engine(db_url)
+        await init_db(engine)
         session_factory = get_session_factory(engine)
 
         async with session_factory() as session:
@@ -1023,4 +1028,263 @@ def export_command(
         return 0
 
     code = asyncio.run(_export())
+    sys.exit(code)
+
+
+@experiment_group.command(name="transfer")
+@click.argument("run_mono_id")
+@click.argument("run_cross_id")
+@click.option(
+    "--compare-hybrid",
+    default=None,
+    help="Optional third run ID (hybrid retrieval) to compute Claim B attenuation.",
+)
+@click.option(
+    "--stats/--no-stats",
+    default=True,
+    help="Compute paired statistical tests across matched information units.",
+)
+@click.option(
+    "--correction",
+    type=click.Choice(["holm", "bh_fdr", "none"], case_sensitive=False),
+    default="holm",
+    help="Multiple testing correction method: holm (default), bh_fdr, or none.",
+)
+@click.option("--db-url", default=None, help="Database connection URL override.")
+def transfer_command(
+    run_mono_id: str,
+    run_cross_id: str,
+    compare_hybrid: str | None,
+    stats: bool,
+    correction: str,
+    db_url: str | None,
+) -> None:
+    """Analyze cross-lingual transfer penalties (Claim A) and hybrid attenuation (Claim B)."""
+
+    async def _transfer() -> int:
+        engine = get_async_engine(db_url)
+        await init_db(engine)
+        session_factory = get_session_factory(engine)
+
+        async with session_factory() as session:
+            exp_repo = ExperimentRepository(session)
+            trace_repo = QueryTraceRepository(session)
+
+            r_mono = await exp_repo.get_run(run_mono_id)
+            r_cross = await exp_repo.get_run(run_cross_id)
+
+            if not r_mono:
+                click.echo(f"Monolingual run '{run_mono_id}' not found.", err=True)
+                await engine.dispose()
+                return 1
+            if not r_cross:
+                click.echo(f"Cross-lingual run '{run_cross_id}' not found.", err=True)
+                await engine.dispose()
+                return 1
+
+            exp_mono = await exp_repo.get_experiment(r_mono.experiment_id)
+            exp_cross = await exp_repo.get_experiment(r_cross.experiment_id)
+            if exp_mono is not None:
+                r_mono.experiment = exp_mono
+            if exp_cross is not None:
+                r_cross.experiment = exp_cross
+
+            r_hybrid = None
+            if compare_hybrid:
+                r_hybrid = await exp_repo.get_run(compare_hybrid)
+                if not r_hybrid:
+                    click.echo(f"Hybrid run '{compare_hybrid}' not found.", err=True)
+                    await engine.dispose()
+                    return 1
+                exp_hybrid = await exp_repo.get_experiment(r_hybrid.experiment_id)
+                if exp_hybrid is not None:
+                    r_hybrid.experiment = exp_hybrid
+
+            trails_mono = await trace_repo.get_run_evidence_trails(r_mono.id)
+            trails_cross = await trace_repo.get_run_evidence_trails(r_cross.id)
+
+            if not trails_mono or not trails_cross:
+                click.echo("Warning: Evidence trails are empty for one or both runs.", err=True)
+                await engine.dispose()
+                return 1
+
+            def _extract_unit_id(qid: str) -> str:
+                raw = qid[2:] if qid.startswith("q_") else qid
+                for sfx in ["_en_en", "_bn_bn", "_en_bn", "_bn_en"]:
+                    if raw.endswith(sfx):
+                        return raw[: -len(sfx)]
+                return raw
+
+            def _extract_modality(run: Any, default: str) -> str:
+                if run.experiment and hasattr(run.experiment, "pipeline_config"):
+                    cfg = run.experiment.pipeline_config
+                    if isinstance(cfg, dict) and "modality" in cfg:
+                        return str(cfg["modality"])
+                return default
+
+            mono_scores_by_metric: dict[str, dict[str, float]] = {}
+            for t in trails_mono:
+                uid = _extract_unit_id(t.query_id)
+                m_res = dict(t.metric_results)
+                m_res["total_latency_ms"] = t.latency_ms
+                for m_name, val in m_res.items():
+                    mono_scores_by_metric.setdefault(m_name, {})[uid] = float(val)
+
+            cross_scores_by_metric: dict[str, dict[str, float]] = {}
+            for t in trails_cross:
+                uid = _extract_unit_id(t.query_id)
+                m_res = dict(t.metric_results)
+                m_res["total_latency_ms"] = t.latency_ms
+                for m_name, val in m_res.items():
+                    cross_scores_by_metric.setdefault(m_name, {})[uid] = float(val)
+
+            strat_mono = "mono"
+            strat_cross = "cross"
+            if r_mono.experiment and hasattr(r_mono.experiment, "pipeline_config"):
+                cfg = r_mono.experiment.pipeline_config
+                if isinstance(cfg, dict):
+                    strat_mono = cfg.get("retrieval", {}).get("strategy", "dense")
+            if r_cross.experiment and hasattr(r_cross.experiment, "pipeline_config"):
+                cfg = r_cross.experiment.pipeline_config
+                if isinstance(cfg, dict):
+                    strat_cross = cfg.get("retrieval", {}).get("strategy", strat_mono)
+
+            mod_mono = _extract_modality(r_mono, "MONO")
+            mod_cross = _extract_modality(r_cross, "CROSS")
+
+            shared_metrics = sorted(
+                set(mono_scores_by_metric.keys()) & set(cross_scores_by_metric.keys())
+            )
+            analyzer = LanguageTransferAnalyzer()
+
+            click.echo(
+                "\n================================================================================"
+            )
+            click.echo(
+                f"Cross-Lingual Language Transfer Analysis (Claim A): {mod_mono} vs {mod_cross}"
+            )
+            click.echo(f"Strategy: {strat_cross} | Mono: {r_mono.id[:8]} | Cross: {r_cross.id[:8]}")
+            click.echo(
+                "================================================================================\n"
+            )
+
+            reports: dict[str, LanguageTransferReport] = {}
+            table_rows = []
+            for m_name in shared_metrics:
+                m_scores = mono_scores_by_metric[m_name]
+                c_scores = cross_scores_by_metric[m_name]
+                shared_uids = sorted(set(m_scores.keys()) & set(c_scores.keys()))
+                if not shared_uids:
+                    continue
+
+                rep = analyzer.compute_penalty(
+                    mono_scores=m_scores,
+                    cross_scores=c_scores,
+                    information_unit_ids=shared_uids,
+                    modality_mono=mod_mono,
+                    modality_cross=mod_cross,
+                    retrieval_strategy=strat_cross,
+                    metric_name=m_name,
+                )
+                reports[m_name] = rep
+                mean_m = sum(m_scores[u] for u in shared_uids) / len(shared_uids)
+                mean_c = sum(c_scores[u] for u in shared_uids) / len(shared_uids)
+                ci_str = f"[{rep.ci_95_lower:+.4f}, {rep.ci_95_upper:+.4f}]"
+                dz_str = f"{rep.cohens_dz:+.4f}" if rep.cohens_dz is not None else "N/A"
+                p_str = f"{rep.p_adj:.4f}" if rep.p_adj is not None else "N/A"
+                table_rows.append(
+                    [
+                        m_name,
+                        f"{mod_mono} -> {mod_cross}",
+                        strat_cross,
+                        str(rep.n_pairs),
+                        f"{mean_m:.4f}",
+                        f"{mean_c:.4f}",
+                        f"{rep.mean_penalty:+.4f}",
+                        ci_str,
+                        p_str,
+                        rep.significance_stars,
+                        dz_str,
+                    ]
+                )
+
+            headers = [
+                "Metric",
+                "Modality Pair",
+                "Strategy",
+                "N (Units)",
+                "Mono Mean",
+                "Cross Mean",
+                "Penalty",
+                "95% CI",
+                "p_adj",
+                "Stars",
+                "Cohen's dz",
+            ]
+            click.echo(render_table(headers, table_rows))
+
+            if r_hybrid is not None:
+                trails_hybrid = await trace_repo.get_run_evidence_trails(r_hybrid.id)
+                hybrid_scores_by_metric: dict[str, dict[str, float]] = {}
+                for t in trails_hybrid:
+                    uid = _extract_unit_id(t.query_id)
+                    m_res = dict(t.metric_results)
+                    m_res["total_latency_ms"] = t.latency_ms
+                    for m_name, val in m_res.items():
+                        hybrid_scores_by_metric.setdefault(m_name, {})[uid] = float(val)
+
+                click.echo(
+                    "\n================================================================================"
+                )
+                click.echo("Hybrid Attenuation of Language Transfer Penalty (Claim B)")
+                click.echo("Formula: Attenuation = Penalty(Dense) - Penalty(Hybrid)")
+                click.echo(f"Dense Run: {r_cross.id[:8]} | Hybrid Run: {r_hybrid.id[:8]}")
+                click.echo(
+                    "================================================================================\n"
+                )
+
+                att_rows = []
+                for m_name in shared_metrics:
+                    if m_name not in reports:
+                        continue
+                    rep_dense = reports[m_name]
+                    h_scores = hybrid_scores_by_metric.get(m_name, {})
+                    m_scores = mono_scores_by_metric[m_name]
+                    shared_uids = sorted(set(m_scores.keys()) & set(h_scores.keys()))
+                    if not shared_uids:
+                        continue
+                    rep_hybrid = analyzer.compute_penalty(
+                        mono_scores=m_scores,
+                        cross_scores=h_scores,
+                        information_unit_ids=shared_uids,
+                        modality_mono=mod_mono,
+                        modality_cross=mod_cross,
+                        retrieval_strategy="hybrid",
+                        metric_name=m_name,
+                    )
+                    att_val = analyzer.compute_attenuation(rep_dense, rep_hybrid)
+                    status = "Attenuated" if att_val > 0 else "No Attenuation"
+                    att_rows.append(
+                        [
+                            m_name,
+                            f"{rep_dense.mean_penalty:+.4f}",
+                            f"{rep_hybrid.mean_penalty:+.4f}",
+                            f"{att_val:+.4f}",
+                            status,
+                        ]
+                    )
+
+                att_headers = [
+                    "Metric",
+                    "Dense Penalty",
+                    "Hybrid Penalty",
+                    "Attenuation",
+                    "Verdict",
+                ]
+                click.echo(render_table(att_headers, att_rows))
+
+        await engine.dispose()
+        return 0
+
+    code = asyncio.run(_transfer())
     sys.exit(code)

@@ -1,0 +1,1 @@
+Retrieval-Augmented Generation mitigates factual hallucination in large language models by conditioning generation on retrieved evidence passages. Combining dense vector retrieval with lexical BM25 retrieval via Reciprocal Rank Fusion provides complementary advantages, capturing both semantic intent and precise keyword entity identifiers.

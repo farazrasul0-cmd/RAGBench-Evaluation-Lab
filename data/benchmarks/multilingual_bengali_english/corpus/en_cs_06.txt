@@ -1,0 +1,1 @@
+Distributed version control systems manage code evolution by recording changes as immutable directed acyclic graphs of commits. In Git, every repository clone contains the complete commit history, enabling offline branching and merging. Content-addressable storage identifies every file, directory tree, and commit using cryptographic SHA hashes.

@@ -1,0 +1,64 @@
+﻿# configs/rq3_multilingual_transfer_sweep.yaml
+# Phase G: RQ3 Controlled Cross-Lingual Transfer & Hybrid Attenuation Study
+#
+# Pre-registered hypotheses (Holm m=4):
+#   H1: Dense EN-BN penalty > 0
+#   H2: Dense BN-EN penalty > 0
+#   H3: Hybrid attenuates EN-BN penalty (Attenuation_EN_BN > 0)
+#   H4: Hybrid attenuates BN-EN penalty (Attenuation_BN_EN > 0)
+#
+# Controlled variable table:
+#   Fixed: corpus, benchmark, chunking, chunk_size, overlap, embedding,
+#          K, evaluation_protocol, metric_protocol
+#   Controlled: query_language, document_language (modality)
+#   Isolated: retrieval.strategy
+
+name: rq3_multilingual_cross_lingual_transfer
+description: >
+  RQ3 controlled study: cross-lingual transfer penalty and hybrid attenuation.
+  3 retrieval strategies x 4 language modalities = 12 runs.
+  Statistical unit: 25 matched information units per transfer direction.
+  Empirical embedding: BAAI/bge-m3 (real model, NOT mock).
+
+dataset: multilingual_bengali_english
+benchmark: multilingual_bengali_english_canonical
+
+# --- Isolated variable ---
+retrieval:
+  strategies:
+    - dense
+    - bm25
+    - hybrid
+
+# --- Controlled language axes ---
+modalities:
+  - EN-EN
+  - BN-BN
+  - EN-BN
+  - BN-EN
+
+# --- All below fixed across all 12 runs ---
+chunking:
+  strategy: fixed
+  chunk_size: 200
+  chunk_overlap: 20
+
+# Amendment 2: frozen embedding configuration (all fields explicit)
+embedding:
+  model_identifier: "BAAI/bge-m3"
+  model_revision: null          # record exact revision when available at run time
+  embedding_dimension: 1024
+  normalize_embeddings: true
+  embedding_provider: "fastembed"
+  similarity_metric: "cosine"
+  query_instruction: null       # bge-m3 uses symmetric encoding — no prefix
+  document_instruction: null    # bge-m3 uses symmetric encoding — no prefix
+
+top_k: 5
+
+evaluation_protocol_version: "ragbench-protocol-v1.0"
+metric_definition_version: "metrics-v1.0"
+
+# Empirical run configuration
+empirical_study: true
+mock_allowed: false   # Guards against accidentally using mock embeddings

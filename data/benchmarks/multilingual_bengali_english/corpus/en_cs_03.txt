@@ -1,0 +1,1 @@
+Cryptographic hash functions compute deterministic fixed-length digests from variable-length byte strings. A secure hash algorithm must provide pre-image resistance, second pre-image resistance, and collision resistance. The SHA-256 standard produces a 256-bit output widely utilized in digital certificates and distributed ledger verification.

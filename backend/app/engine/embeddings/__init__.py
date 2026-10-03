@@ -6,13 +6,17 @@ from app.core.exceptions import RAGBenchError
 from app.engine.embeddings.base import BaseEmbeddingProvider, EmbeddingError
 from app.engine.embeddings.cloud_provider import CloudEmbeddingProvider
 from app.engine.embeddings.fastembed_provider import FastEmbedProvider
-from app.engine.embeddings.mock_provider import DeterministicMockEmbeddingProvider
+from app.engine.embeddings.mock_provider import (
+    DeterministicMockEmbeddingProvider,
+    DeterministicMockMultilingualEmbeddingProvider,
+)
 from app.engine.embeddings.sentence_trans import SentenceTransformersProvider
 
 __all__ = [
     "BaseEmbeddingProvider",
     "CloudEmbeddingProvider",
     "DeterministicMockEmbeddingProvider",
+    "DeterministicMockMultilingualEmbeddingProvider",
     "EmbeddingError",
     "FastEmbedProvider",
     "SentenceTransformersProvider",
@@ -35,4 +39,6 @@ def get_embedding_provider(
         return CloudEmbeddingProvider(model_name=model_name, **kwargs)
     if prov in ["mock", "test", "deterministic"]:
         return DeterministicMockEmbeddingProvider(model_name=model_name, **kwargs)
+    if prov in ["mock_multilingual", "mock-multilingual"]:
+        return DeterministicMockMultilingualEmbeddingProvider(model_name=model_name, **kwargs)
     raise RAGBenchError(f"Unknown embedding provider: {provider}")

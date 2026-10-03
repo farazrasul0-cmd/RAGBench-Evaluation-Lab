@@ -11,8 +11,8 @@ from app.schemas.document import RawDocument
 class SentenceBoundaryChunker(BaseChunker):
     """Splits documents on sentence boundaries without truncating statements mid-sentence."""
 
-    # Matches sentence endings: Western (. ! ?) and Bengali/Indic (। Dari / danda)
-    SENTENCE_SPLIT_REGEX = re.compile(r"(?<=[.!?\u0964])\s+")
+    # Matches sentence endings: Western (. ! ?) and Bengali/Indic (। Dari / ॥ Double Dari)
+    SENTENCE_SPLIT_REGEX = re.compile(r"(?<=[.!?\u0964\u0965])\s+")
 
     def __init__(self, chunk_size: int = 512, chunk_overlap: int = 64) -> None:
         super().__init__()

@@ -1,0 +1,1 @@
+The CAP theorem in distributed computing asserts that a distributed data store can simultaneously guarantee at most two out of three properties: Consistency, Availability, and Partition tolerance. Because network partitions are inevitable in real-world distributed networks, system architects must choose between consistency and availability during partition events.

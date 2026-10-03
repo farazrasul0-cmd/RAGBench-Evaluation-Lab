@@ -1,0 +1,1 @@
+The Transformer neural network architecture replaces recurrent sequence processing with multi-head self-attention mechanisms. By processing input tokens concurrently rather than sequentially, Transformers achieve superior parallel training throughput on modern accelerators, serving as the foundational backbone for large language models.
