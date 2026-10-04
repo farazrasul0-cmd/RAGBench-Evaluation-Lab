@@ -1,6 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import { ParetoFrontierPlot } from './ParetoFrontierPlot'
+import { computeParetoFrontier } from '../api/client'
 import type { ParetoPoint } from '../types'
 
 const SAMPLE_POINTS: ParetoPoint[] = [
@@ -63,5 +64,44 @@ describe('ParetoFrontierPlot', () => {
       fireEvent.click(groups[0])
       expect(handleSelect).toHaveBeenCalled()
     }
+  })
+
+  it('handles empty dataset gracefully without crash', () => {
+    const { container } = render(<ParetoFrontierPlot points={[]} />)
+    expect(container.querySelector('svg')).toBeDefined()
+  })
+
+  it('handles single-point dataset gracefully', () => {
+    const singlePoint: ParetoPoint[] = [
+      {
+        run_id: 'solo',
+        name: 'Single Config',
+        strategy: 'hybrid',
+        recall_at_5: 0.90,
+        latency_ms: 25.0,
+        estimated_cost_usd: 0.001,
+        ndcg_at_5: 0.85,
+        is_pareto_optimal: true,
+      },
+    ]
+    const { container } = render(<ParetoFrontierPlot points={singlePoint} />)
+    expect(container.querySelector('circle')).toBeDefined()
+  })
+
+  it('verifies computeParetoFrontier dominance math correctly', () => {
+    const raw: ParetoPoint[] = [
+      { run_id: 'fast_good', name: 'A', strategy: 'dense', recall_at_5: 0.9, latency_ms: 10, estimated_cost_usd: 0, ndcg_at_5: 0, is_pareto_optimal: false },
+      { run_id: 'slow_worse', name: 'B', strategy: 'dense', recall_at_5: 0.8, latency_ms: 20, estimated_cost_usd: 0, ndcg_at_5: 0, is_pareto_optimal: false },
+      { run_id: 'equal_lat_worse_rec', name: 'C', strategy: 'dense', recall_at_5: 0.7, latency_ms: 10, estimated_cost_usd: 0, ndcg_at_5: 0, is_pareto_optimal: false },
+      { run_id: 'equal_rec_worse_lat', name: 'D', strategy: 'dense', recall_at_5: 0.9, latency_ms: 15, estimated_cost_usd: 0, ndcg_at_5: 0, is_pareto_optimal: false },
+    ]
+
+    const evaluated = computeParetoFrontier(raw)
+    const optMap = Object.fromEntries(evaluated.map((p) => [p.run_id, p.is_pareto_optimal]))
+
+    expect(optMap['fast_good']).toBe(true) // Dominates all
+    expect(optMap['slow_worse']).toBe(false) // Dominated by fast_good
+    expect(optMap['equal_lat_worse_rec']).toBe(false) // Dominated by fast_good (same latency, lower recall)
+    expect(optMap['equal_rec_worse_lat']).toBe(false) // Dominated by fast_good (same recall, higher latency)
   })
 })

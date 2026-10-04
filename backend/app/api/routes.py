@@ -150,9 +150,57 @@ async def get_experiment(
     }
 
 
+def validate_sweep_compatibility(request: MatrixPreviewRequest) -> tuple[bool, str, list[str]]:
+    """Authoritative backend validation for sweep execution and topology compatibility."""
+    warnings: list[str] = []
+    is_executable = True
+    status = "COMPATIBLE"
+
+    # 1. Chunk geometry validation
+    for sz in request.chunk_sizes:
+        for ov in request.chunk_overlaps:
+            if ov >= sz:
+                warnings.append(
+                    f"Invalid chunk geometry: overlap ({ov}) "
+                    f"must be strictly less than chunk_size ({sz})"
+                )
+                is_executable = False
+                status = "INCOMPATIBLE"
+
+    # 2. Top-k validation
+    for k in request.top_k_values:
+        if k <= 0:
+            warnings.append(f"Invalid retrieval parameter: top_k ({k}) must be positive")
+            is_executable = False
+            status = "INCOMPATIBLE"
+
+    # 3. BM25 vs neural embedding compatibility note
+    has_bm25 = "bm25" in [s.lower() for s in request.retrieval_strategies]
+    if has_bm25 and len(request.embedding_models) > 0:
+        warnings.append(
+            "BM25 lexical strategy operates via inverted index "
+            "and bypasses dense embedding inference."
+        )
+        if status == "COMPATIBLE":
+            status = "WARNINGS"
+
+    # 4. Generation model check
+    if all(m.lower() == "none" for m in request.generation_models):
+        warnings.append(
+            "Retrieval-only evaluation active "
+            "(generation faithfulness and citation metrics disabled)."
+        )
+        if status == "COMPATIBLE":
+            status = "WARNINGS"
+
+    return is_executable, status, warnings
+
+
 @api_router.post("/experiments/matrix/preview", summary="Preview Matrix Sweep Combinations")
 async def preview_matrix_sweep(request: MatrixPreviewRequest) -> MatrixPreviewResponse:
     """Calculate combinatorial sweep parameters and preview combinations."""
+    is_executable, status, warnings = validate_sweep_compatibility(request)
+
     combos = list(
         product(
             request.chunking_strategies,
@@ -187,11 +235,23 @@ async def preview_matrix_sweep(request: MatrixPreviewRequest) -> MatrixPreviewRe
             )
         )
 
+    controlled_dims = {
+        "dataset_id": request.dataset_id,
+        "dataset_version_id": request.dataset_version_id,
+        "evaluation_protocol": "ragbench-protocol-v1.0",
+        "metric_suite": "metrics-v1.0",
+        "baseline_reference_commit": "eb3bb4d",
+    }
+
     return MatrixPreviewResponse(
         total_combinations=total_count,
         complexity_category=category,
         estimated_queries_per_run=100,
         total_pipeline_points=total_count,
+        is_executable=is_executable,
+        compatibility_status=status,
+        validation_warnings=warnings,
+        controlled_dimensions=controlled_dims,
         sample_configurations=sample_points,
     )
 
@@ -199,6 +259,8 @@ async def preview_matrix_sweep(request: MatrixPreviewRequest) -> MatrixPreviewRe
 @api_router.post("/experiments/matrix/yaml", summary="Generate Sweep YAML Payload")
 async def generate_matrix_yaml(request: MatrixPreviewRequest) -> MatrixYamlResponse:
     """Generate canonical YAML string representing the sweep experiment."""
+    is_executable, _, warnings = validate_sweep_compatibility(request)
+
     combos = list(
         product(
             request.chunking_strategies,
@@ -219,6 +281,11 @@ async def generate_matrix_yaml(request: MatrixPreviewRequest) -> MatrixYamlRespo
         "dataset": {
             "dataset_id": request.dataset_id,
             "dataset_version_id": request.dataset_version_id,
+        },
+        "provenance": {
+            "baseline_commit": "eb3bb4d",
+            "protocol_version": "ragbench-protocol-v1.0",
+            "metrics_version": "metrics-v1.0",
         },
         "parameters": {
             "chunking": {
@@ -253,6 +320,8 @@ async def generate_matrix_yaml(request: MatrixPreviewRequest) -> MatrixYamlRespo
         yaml_string=yaml_str,
         total_combinations=total_count,
         configuration_hash=config_hash,
+        is_executable=is_executable,
+        validation_warnings=warnings,
     )
 
 

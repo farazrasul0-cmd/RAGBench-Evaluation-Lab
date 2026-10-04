@@ -18,6 +18,7 @@ export const TraceInspectorView: React.FC = () => {
   const [searchQuery, setSearchQuery] = useState<string>('')
   const [modalityFilter, setModalityFilter] = useState<string>('ALL')
   const [highlightedChunkId, setHighlightedChunkId] = useState<string | null>(null)
+  const [unresolvedCitation, setUnresolvedCitation] = useState<string | null>(null)
   
   const chunkRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
@@ -58,9 +59,21 @@ export const TraceInspectorView: React.FC = () => {
   }, [traces, selectedTraceId])
 
   const scrollToChunk = (chunkId: string) => {
+    // Explicit provenance verification: citation must resolve to an actual retrieved chunk
+    const chunkExists = activeTrace?.retrieved_chunks.some(
+      (c) => c.chunk_id === chunkId || c.doc_id === chunkId
+    )
+
+    if (!chunkExists) {
+      setUnresolvedCitation(chunkId)
+      setHighlightedChunkId(null)
+      return
+    }
+
+    setUnresolvedCitation(null)
     setHighlightedChunkId(chunkId)
     const el = chunkRefs.current[chunkId]
-    if (el) {
+    if (el && typeof el.scrollIntoView === 'function') {
       el.scrollIntoView({ behavior: 'smooth', block: 'center' })
     }
   }
@@ -280,6 +293,27 @@ export const TraceInspectorView: React.FC = () => {
                   </div>
 
                   <div className="p-3.5 bg-slate-950 rounded-lg border border-slate-800 text-xs leading-relaxed space-y-2 font-sans">
+                    {/* Unresolved Citation Provenance Alert Banner */}
+                    {unresolvedCitation && (
+                      <div className="p-3 bg-rose-950/40 border border-rose-500/50 rounded-lg text-rose-200 text-xs flex items-center justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
+                          <div>
+                            <span className="font-semibold font-mono">Unresolved Provenance:</span>
+                            <span className="ml-1">
+                              Citation <code className="bg-rose-900/50 px-1 py-0.2 rounded text-white font-mono font-bold">[{unresolvedCitation}]</code> cannot be resolved to any retrieved passage chunk (hallucinated citation or ungrounded claim).
+                            </span>
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setUnresolvedCitation(null)}
+                          className="text-[11px] text-rose-300 hover:text-white px-2 py-0.5 rounded bg-rose-900/40 hover:bg-rose-800 transition-colors"
+                        >
+                          Dismiss
+                        </button>
+                      </div>
+                    )}
+
                     {activeTrace.annotated_spans.map((span, idx) => {
                       const isEntailing = span.is_entailing
                       return (
@@ -294,17 +328,26 @@ export const TraceInspectorView: React.FC = () => {
                           <div className="flex items-start justify-between gap-3">
                             <span className="flex-1">{span.text}</span>
                             <div className="flex items-center gap-1 shrink-0 font-mono">
-                              {span.citation_ids.map((cit) => (
-                                <button
-                                  key={cit}
-                                  onClick={() => scrollToChunk(cit)}
-                                  className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 hover:bg-indigo-600 text-indigo-300 hover:text-white border border-slate-700 transition-colors flex items-center gap-0.5"
-                                  title={`Jump to chunk ${cit}`}
-                                >
-                                  <span>[{cit.split('_').slice(-2).join('_')}]</span>
-                                  <ExternalLink className="w-2.5 h-2.5" />
-                                </button>
-                              ))}
+                              {span.citation_ids.map((cit) => {
+                                const isResolvable = activeTrace.retrieved_chunks.some(
+                                  (c) => c.chunk_id === cit || c.doc_id === cit
+                                )
+                                return (
+                                  <button
+                                    key={cit}
+                                    onClick={() => scrollToChunk(cit)}
+                                    className={`px-1.5 py-0.5 rounded text-[10px] border transition-colors flex items-center gap-0.5 ${
+                                      isResolvable
+                                        ? 'bg-slate-800 hover:bg-indigo-600 text-indigo-300 hover:text-white border-slate-700'
+                                        : 'bg-amber-950/40 hover:bg-rose-900 text-amber-300 hover:text-white border-amber-500/40'
+                                    }`}
+                                    title={isResolvable ? `Jump to chunk ${cit}` : `Unresolvable citation: ${cit}`}
+                                  >
+                                    <span>[{cit.split('_').slice(-2).join('_')}]</span>
+                                    {isResolvable ? <ExternalLink className="w-2.5 h-2.5" /> : <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />}
+                                  </button>
+                                )
+                              })}
                             </div>
                           </div>
                         </div>

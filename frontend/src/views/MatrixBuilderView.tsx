@@ -24,7 +24,7 @@ const EMBEDDING_OPTIONS = [
 ]
 const RETRIEVAL_OPTIONS = ['dense', 'bm25', 'hybrid']
 const RERANKER_OPTIONS = ['none', 'cross-encoder/ms-marco-MiniLM-L-6-v2', 'bge-reranker-large']
-const GENERATION_OPTIONS = ['gpt-4o-mini', 'claude-3-5-sonnet', 'gemini-1.5-pro']
+const GENERATION_OPTIONS = ['none', 'gpt-4o-mini', 'claude-3-5-sonnet', 'gemini-1.5-pro']
 const TOP_K_OPTIONS = [3, 5, 10]
 
 export const MatrixBuilderView: React.FC = () => {
@@ -124,13 +124,16 @@ export const MatrixBuilderView: React.FC = () => {
   const loadPreset = (type: 'rq3' | 'fast' | 'full') => {
     if (type === 'rq3') {
       setName('rq3_multilingual_study_matrix')
+      setDescription('Exact replication of approved RQ3 BAAI/bge-m3 12-run factorial sweep (eb3bb4d) evaluating cross-lingual transfer on N=25 matched units.')
+      setDatasetId('scifact_multilingual')
+      setDatasetVersionId('v1.0')
       setChunking(['sentence'])
       setChunkSizes([512])
       setChunkOverlaps([64])
       setEmbeddings(['BAAI/bge-m3'])
       setRetrievals(['dense', 'bm25', 'hybrid'])
-      setRerankers(['none', 'cross-encoder/ms-marco-MiniLM-L-6-v2'])
-      setGenerations(['gpt-4o-mini'])
+      setRerankers(['none'])
+      setGenerations(['none'])
       setTopKValues([5])
     } else if (type === 'fast') {
       setName('quick_smoke_matrix')
@@ -463,9 +466,22 @@ export const MatrixBuilderView: React.FC = () => {
           <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
             <div className="flex items-center justify-between mb-3">
               <div className="text-xs font-semibold text-slate-400 uppercase tracking-wider">Combinatorial Scale</div>
-              <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-mono border font-semibold ${complexityColor}`}>
-                {complexityLabel}
-              </span>
+              <div className="flex items-center gap-2">
+                {previewData?.compatibility_status && (
+                  <span className={`text-[11px] px-2 py-0.5 rounded font-mono border font-semibold ${
+                    previewData.compatibility_status === 'COMPATIBLE'
+                      ? 'text-emerald-400 bg-emerald-500/10 border-emerald-500/30'
+                      : previewData.compatibility_status === 'WARNINGS'
+                      ? 'text-amber-400 bg-amber-500/10 border-amber-500/30'
+                      : 'text-rose-400 bg-rose-500/10 border-rose-500/30'
+                  }`}>
+                    {previewData.compatibility_status}
+                  </span>
+                )}
+                <span className={`text-[11px] px-2.5 py-0.5 rounded-full font-mono border font-semibold ${complexityColor}`}>
+                  {complexityLabel}
+                </span>
+              </div>
             </div>
 
             <div className="grid grid-cols-3 gap-3 text-center">
@@ -487,6 +503,24 @@ export const MatrixBuilderView: React.FC = () => {
               </div>
             </div>
           </div>
+
+          {/* Authoritative Backend Compatibility Diagnostics */}
+          {previewData?.validation_warnings && previewData.validation_warnings.length > 0 && (
+            <div className={`p-3.5 rounded-xl border text-xs space-y-1.5 ${
+              previewData.is_executable
+                ? 'bg-amber-950/20 border-amber-500/30 text-amber-200'
+                : 'bg-rose-950/20 border-rose-500/40 text-rose-200'
+            }`}>
+              <div className="font-semibold flex items-center gap-1.5 font-mono">
+                <span>{previewData.is_executable ? '⚠️ Compatibility Diagnostics' : '🛑 Execution Invariant Error'}</span>
+              </div>
+              <ul className="list-disc list-inside space-y-0.5 text-[11px] font-sans">
+                {previewData.validation_warnings.map((warn, i) => (
+                  <li key={i}>{warn}</li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {/* Output Mode Switcher */}
           <div className="bg-slate-900 rounded-xl border border-slate-800 overflow-hidden flex flex-col">

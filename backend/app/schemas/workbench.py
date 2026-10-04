@@ -39,12 +39,16 @@ class MatrixConfigurationPoint(BaseModel):
 
 
 class MatrixPreviewResponse(BaseModel):
-    """Calculated combinatorial analysis for matrix sweep."""
+    """Calculated combinatorial analysis and compatibility verification for matrix sweep."""
 
     total_combinations: int
     complexity_category: str
     estimated_queries_per_run: int
     total_pipeline_points: int
+    is_executable: bool = True
+    compatibility_status: str = "COMPATIBLE"
+    validation_warnings: list[str] = Field(default_factory=list)
+    controlled_dimensions: dict[str, Any] = Field(default_factory=dict)
     sample_configurations: list[MatrixConfigurationPoint]
 
 
@@ -54,3 +58,5 @@ class MatrixYamlResponse(BaseModel):
     yaml_string: str
     total_combinations: int
     configuration_hash: str
+    is_executable: bool = True
+    validation_warnings: list[str] = Field(default_factory=list)

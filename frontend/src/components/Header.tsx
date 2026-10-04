@@ -63,13 +63,22 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, onTabChange }) => {
           })}
         </nav>
 
-        {/* Liveness Status */}
-        <div className="hidden lg:flex items-center gap-2 text-xs text-slate-400">
-          <span className="relative flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-          </span>
-          <span className="font-mono text-[11px] text-slate-300">Phase H Active</span>
+        {/* Baseline Provenance & Liveness Status */}
+        <div className="hidden lg:flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-1.5 px-2.5 py-1 rounded bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400">
+            <span>Baseline: <strong className="text-white">eb3bb4d</strong></span>
+            <span className="text-slate-600">·</span>
+            <span>Protocol: <strong className="text-slate-300">ragbench-v1.0</strong></span>
+            <span className="text-slate-600">·</span>
+            <span>Metrics: <strong className="text-slate-300">metrics-v1.0</strong></span>
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-slate-400">
+            <span className="relative flex h-2 w-2">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
+            </span>
+            <span className="font-mono text-[11px] text-slate-300">Phase H Active</span>
+          </div>
         </div>
       </div>
     </header>

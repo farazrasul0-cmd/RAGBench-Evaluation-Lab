@@ -49,4 +49,45 @@ describe('RadarChart', () => {
     fireEvent.click(toggleBtn)
     expect(handleToggle).toHaveBeenCalledWith('run-1')
   })
+
+  it('handles zero and missing metrics gracefully without NaN coordinates', () => {
+    const edgeData: RadarMetricData[] = [
+      {
+        run_id: 'zero_run',
+        name: 'Zero Metric Run',
+        color: '#ef4444',
+        metrics: {
+          recall_at_10: 0.0,
+          precision_at_5: 0.0,
+          faithfulness: 0.0,
+          citation_accuracy: 0.0,
+          cost_efficiency: 0.0,
+        },
+      },
+    ]
+
+    const { container } = render(<RadarChart data={edgeData} />)
+    const polygon = container.querySelector('polygon[fill="#ef4444"]')
+    expect(polygon).toBeDefined()
+    const pointsAttr = polygon?.getAttribute('points')
+    expect(pointsAttr).not.toContain('NaN')
+  })
+
+  it('renders up to 5 concurrent series without rendering errors', () => {
+    const multiSeries: RadarMetricData[] = [1, 2, 3, 4, 5].map((i) => ({
+      run_id: `series-${i}`,
+      name: `Series ${i}`,
+      color: `#${i}${i}4488`,
+      metrics: {
+        recall_at_10: i * 0.2,
+        precision_at_5: i * 0.2,
+        faithfulness: i * 0.2,
+        citation_accuracy: i * 0.2,
+        cost_efficiency: i * 0.2,
+      },
+    }))
+
+    const { container } = render(<RadarChart data={multiSeries} />)
+    expect(container.querySelectorAll('polygon').length).toBeGreaterThanOrEqual(5)
+  })
 })

@@ -4,6 +4,7 @@
 
 import type {
   ComparisonRunSummary,
+  MatrixConfigurationPoint,
   MatrixPreviewData,
   MatrixSweepSelection,
   ParetoPoint,
@@ -15,6 +16,19 @@ export interface SystemHealth {
   status: string
   project: string
   version: string
+}
+
+/**
+ * Phase G Reference Provenance & Scientific Baseline
+ */
+export const FIXTURE_METADATA = {
+  source_checkpoint: 'eb3bb4d',
+  protocol_version: 'ragbench-protocol-v1.0',
+  metrics_version: 'metrics-v1.0',
+  embedding_model: 'BAAI/bge-m3',
+  embedding_dimension: 1024,
+  matched_units_count: 25,
+  is_fallback: true,
 }
 
 const API_BASE = '/api/v1'
@@ -436,36 +450,87 @@ export async function previewMatrixSweep(
   if (total > 48) cat = 'HEAVY'
   else if (total > 12) cat = 'MODERATE'
 
+  const warnings: string[] = []
+  let isExecutable = true
+  let compatStatus: 'COMPATIBLE' | 'WARNINGS' | 'INCOMPATIBLE' = 'COMPATIBLE'
+
+  for (const sz of selection.chunk_sizes) {
+    for (const ov of selection.chunk_overlaps) {
+      if (ov >= sz) {
+        warnings.push(`Invalid chunk geometry: overlap (${ov}) must be strictly less than chunk_size (${sz})`)
+        isExecutable = false
+        compatStatus = 'INCOMPATIBLE'
+      }
+    }
+  }
+
+  for (const k of selection.top_k_values) {
+    if (k <= 0) {
+      warnings.push(`Invalid retrieval parameter: top_k (${k}) must be positive`)
+      isExecutable = false
+      compatStatus = 'INCOMPATIBLE'
+    }
+  }
+
+  if (selection.retrieval_strategies.some((s) => s.toLowerCase() === 'bm25') && selection.embedding_models.length > 0) {
+    warnings.push('BM25 lexical strategy operates via inverted index and bypasses dense embedding inference.')
+    if (compatStatus === 'COMPATIBLE') compatStatus = 'WARNINGS'
+  }
+
+  if (selection.generation_models.every((m) => m.toLowerCase() === 'none')) {
+    warnings.push('Retrieval-only evaluation active (generation faithfulness and citation metrics disabled).')
+    if (compatStatus === 'COMPATIBLE') compatStatus = 'WARNINGS'
+  }
+
+  const samplePoints: MatrixConfigurationPoint[] = []
+  let sampleIdx = 0
+  for (const c of selection.chunking_strategies) {
+    for (const sz of selection.chunk_sizes) {
+      for (const ov of selection.chunk_overlaps) {
+        for (const emb of selection.embedding_models) {
+          for (const ret of selection.retrieval_strategies) {
+            for (const rerank of selection.rerankers) {
+              for (const gen of selection.generation_models) {
+                for (const k of selection.top_k_values) {
+                  if (sampleIdx < 10) {
+                    samplePoints.push({
+                      index: sampleIdx + 1,
+                      chunking: { strategy: c, chunk_size: sz, chunk_overlap: ov },
+                      embedding: {
+                        model_name: emb,
+                        dimension: emb.includes('bge-m3') ? 1024 : 384,
+                      },
+                      retrieval: { strategy: ret, top_k: k },
+                      reranker: { enabled: rerank !== 'none', strategy: rerank },
+                      generation: { model_name: gen },
+                    })
+                  }
+                  sampleIdx++
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+
   return {
     total_combinations: total,
     complexity_category: cat,
-    estimated_queries_per_run: 100,
+    estimated_queries_per_run: 25,
     total_pipeline_points: total,
-    sample_configurations: [
-      {
-        index: 1,
-        chunking: {
-          strategy: selection.chunking_strategies[0] || 'fixed',
-          chunk_size: selection.chunk_sizes[0] || 200,
-          chunk_overlap: selection.chunk_overlaps[0] || 20,
-        },
-        embedding: {
-          model_name: selection.embedding_models[0] || 'BAAI/bge-m3',
-          dimension: 1024,
-        },
-        retrieval: {
-          strategy: selection.retrieval_strategies[0] || 'dense',
-          top_k: selection.top_k_values[0] || 5,
-        },
-        reranker: {
-          enabled: (selection.rerankers[0] || 'none') !== 'none',
-          strategy: selection.rerankers[0] || 'none',
-        },
-        generation: {
-          model_name: selection.generation_models[0] || 'mock',
-        },
-      },
-    ],
+    is_executable: isExecutable,
+    compatibility_status: compatStatus,
+    validation_warnings: warnings,
+    controlled_dimensions: {
+      dataset_id: selection.dataset_id,
+      dataset_version_id: selection.dataset_version_id,
+      evaluation_protocol: 'ragbench-protocol-v1.0',
+      metric_suite: 'metrics-v1.0',
+      baseline_reference_commit: 'eb3bb4d',
+    },
+    sample_configurations: samplePoints,
   }
 }
 

@@ -192,13 +192,15 @@ export const CompareDashboardView: React.FC = () => {
 
         <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
           <div className="flex items-center justify-between">
-            <span className="text-xs text-slate-400 font-medium">Cross-Lingual Transfer</span>
-            <span className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
+            <span className="text-xs text-slate-400 font-medium">RQ3 Hypothesis Family</span>
+            <span className="p-1.5 rounded-lg bg-indigo-500/10 text-indigo-400">
               <Sparkles className="w-4 h-4" />
             </span>
           </div>
-          <div className="mt-2 text-2xl font-bold font-mono text-purple-300">60.0%</div>
-          <div className="mt-0.5 text-xs text-slate-500">Hybrid RRF Attenuation (+12% vs Dense)</div>
+          <div className="mt-2 text-2xl font-bold font-mono text-indigo-300">H1 Supported</div>
+          <div className="mt-0.5 text-xs text-slate-500">
+            EN→BN penalty +0.8613 · BN→EN gain -0.8382 · H2–H4 Not Supported
+          </div>
         </div>
 
         <div className="p-4 rounded-xl bg-slate-900 border border-slate-800">
@@ -210,6 +212,21 @@ export const CompareDashboardView: React.FC = () => {
           </div>
           <div className="mt-2 text-2xl font-bold font-mono text-amber-300">12.1 ms</div>
           <div className="mt-0.5 text-xs text-slate-500">BM25 Inverted Index · EN-EN</div>
+        </div>
+      </div>
+
+      {/* Controlled Evaluation Invariant Banner */}
+      <div className="p-3.5 bg-slate-900/90 rounded-xl border border-indigo-500/30 text-xs flex flex-col md:flex-row md:items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-slate-300">
+          <span className="p-1 rounded bg-indigo-500/20 text-indigo-300 font-mono text-[10px] font-bold">
+            CONTROLLED COMPARISON
+          </span>
+          <span>
+            SciFact Multilingual (N=25 Matched Information Units) · Protocol: <span className="font-mono text-white">ragbench-protocol-v1.0</span> · Baseline: <span className="font-mono text-white">eb3bb4d</span>
+          </span>
+        </div>
+        <div className="text-[11px] text-slate-400 font-mono">
+          Strict scientific comparability: depth k=5, identical query distribution
         </div>
       </div>
 

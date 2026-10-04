@@ -37,7 +37,24 @@ describe('MatrixBuilderView', () => {
     })
   })
 
-  it('loads presets correctly', async () => {
+  it('loads RQ3 Multilingual preset with exact approved Phase G configuration', async () => {
+    render(<MatrixBuilderView />)
+
+    const rq3PresetBtn = screen.getByRole('button', { name: 'RQ3 Multilingual' })
+    fireEvent.click(rq3PresetBtn)
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue('rq3_multilingual_study_matrix')).toBeDefined()
+      expect(screen.getByDisplayValue('scifact_multilingual')).toBeDefined()
+      expect(screen.getByDisplayValue('v1.0')).toBeDefined()
+      // Retrieval topologies: dense, bm25, hybrid
+      expect(screen.getByText('Retrieval Strategies (3)')).toBeDefined()
+      // Neural reranker: none (1)
+      expect(screen.getByText('Neural Rerankers (1)')).toBeDefined()
+    })
+  })
+
+  it('loads Fast Smoke preset correctly', async () => {
     render(<MatrixBuilderView />)
 
     const fastPresetBtn = screen.getByRole('button', { name: 'Fast Smoke' })

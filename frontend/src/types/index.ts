@@ -1,5 +1,6 @@
 /**
  * Core Data Models for RAGBench Evaluation Laboratory (Phase H Academic Workbench)
+ * Scientific provenance tied to Phase G locked baseline commit eb3bb4d.
  */
 
 export interface AggregateMetrics {
@@ -40,7 +41,7 @@ export interface EvaluationRunResult {
 export type WorkbenchTab = 'overview' | 'matrix' | 'compare' | 'trace'
 
 /**
- * Matrix Builder Parameter Selection
+ * Matrix Builder Parameter Selection & Authoritative Compatibility
  */
 export interface MatrixSweepSelection {
   name: string
@@ -71,11 +72,21 @@ export interface MatrixPreviewData {
   complexity_category: 'LOW' | 'MODERATE' | 'HEAVY'
   estimated_queries_per_run: number
   total_pipeline_points: number
+  is_executable: boolean
+  compatibility_status: 'COMPATIBLE' | 'WARNINGS' | 'INCOMPATIBLE'
+  validation_warnings: string[]
+  controlled_dimensions?: Record<string, unknown>
   sample_configurations: MatrixConfigurationPoint[]
 }
 
 /**
  * Comparative Dashboard Models (Pareto & Radar)
+ *
+ * Pareto Dominance Definition:
+ * Configuration A dominates B iff:
+ *   A.latency_ms <= B.latency_ms AND A.recall_at_5 >= B.recall_at_5
+ *   with at least one strict inequality.
+ * Valid only under identical query distributions and top-k depth.
  */
 export interface ParetoPoint {
   run_id: string
@@ -89,6 +100,15 @@ export interface ParetoPoint {
   is_pareto_optimal: boolean
 }
 
+/**
+ * Radar Chart Metric Semantics:
+ * All dimensions are normalized to [0.0, 1.0]:
+ * - recall_at_10: fraction of gold chunks retrieved in top 10 [0, 1]
+ * - precision_at_5: fraction of retrieved chunks in top 5 that are relevant [0, 1]
+ * - faithfulness: fraction of generated answer claims entailed by context [0, 1]
+ * - citation_accuracy: precision of cited source chunks [0, 1]
+ * - cost_efficiency: bounded efficiency index 1 - (latency/max_lat)*0.5 - (cost/max_cost)*0.5 [0, 1]
+ */
 export interface RadarMetricData {
   run_id: string
   name: string
