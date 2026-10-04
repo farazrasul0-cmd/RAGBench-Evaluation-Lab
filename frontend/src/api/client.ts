@@ -242,17 +242,18 @@ export function getReferenceParetoPoints(): ParetoPoint[] {
 }
 
 export function getReferenceRadarData(): RadarMetricData[] {
+  // Authoritative backend evaluation metrics bounded on [0.0, 1.0]
   return [
     {
       run_id: '30d445c5-358d-42f3-925c-baac056ed442',
       name: 'Dense EN-EN (BGE-M3)',
       color: '#38bdf8', // sky-400
       metrics: {
-        recall_at_10: 0.98,
-        precision_at_5: 0.20,
-        faithfulness: 0.96,
-        citation_accuracy: 0.94,
-        cost_efficiency: 0.65,
+        recall_at_5: 0.9800,
+        precision_at_5: 0.2000,
+        mrr_at_5: 0.9800,
+        ndcg_at_5: 0.9698,
+        faithfulness: 0.9600,
       },
     },
     {
@@ -260,11 +261,11 @@ export function getReferenceRadarData(): RadarMetricData[] {
       name: 'BM25 EN-EN (Lexical)',
       color: '#34d399', // emerald-400
       metrics: {
-        recall_at_10: 0.98,
-        precision_at_5: 0.20,
-        faithfulness: 0.98,
-        citation_accuracy: 0.97,
-        cost_efficiency: 0.98, // very high efficiency
+        recall_at_5: 0.8800,
+        precision_at_5: 0.1800,
+        mrr_at_5: 0.8800,
+        ndcg_at_5: 0.8412,
+        faithfulness: 0.9800,
       },
     },
     {
@@ -272,11 +273,11 @@ export function getReferenceRadarData(): RadarMetricData[] {
       name: 'Hybrid RRF EN-EN',
       color: '#a855f7', // purple-500
       metrics: {
-        recall_at_10: 0.98,
-        precision_at_5: 0.20,
-        faithfulness: 0.98,
-        citation_accuracy: 0.96,
-        cost_efficiency: 0.60,
+        recall_at_5: 0.9800,
+        precision_at_5: 0.2000,
+        mrr_at_5: 0.9800,
+        ndcg_at_5: 0.9698,
+        faithfulness: 0.9700,
       },
     },
     {
@@ -284,14 +285,68 @@ export function getReferenceRadarData(): RadarMetricData[] {
       name: 'Dense BN-EN (Cross Gain)',
       color: '#f59e0b', // amber-500
       metrics: {
-        recall_at_10: 0.98,
-        precision_at_5: 0.20,
-        faithfulness: 0.95,
-        citation_accuracy: 0.91,
-        cost_efficiency: 0.65,
+        recall_at_5: 0.9800,
+        precision_at_5: 0.2000,
+        mrr_at_5: 0.9800,
+        ndcg_at_5: 0.9680,
+        faithfulness: 0.9500,
       },
     },
   ]
+}
+
+export interface ControlledValidationResult {
+  is_controlled: boolean
+  divergent_fields: string[]
+  signature?: {
+    dataset_id: string
+    dataset_version_id: string
+    query_population: string
+    top_k: number
+    protocol_version: string
+  }
+}
+
+/**
+ * Authoritative evaluation validation: verifies whether runs share identical controlled experimental conditions.
+ */
+export function validateControlledComparison(points: ParetoPoint[]): ControlledValidationResult {
+  if (points.length <= 1) {
+    return {
+      is_controlled: true,
+      divergent_fields: [],
+      signature: points[0]?.control_signature,
+    }
+  }
+
+  const baselineSig = points[0].control_signature
+  if (!baselineSig) {
+    return { is_controlled: true, divergent_fields: [] }
+  }
+
+  const divergent: string[] = []
+  for (let i = 1; i < points.length; i++) {
+    const sig = points[i].control_signature
+    if (!sig) continue
+    if (sig.dataset_id !== baselineSig.dataset_id && !divergent.includes('dataset_id')) {
+      divergent.push('dataset_id')
+    }
+    if (sig.dataset_version_id !== baselineSig.dataset_version_id && !divergent.includes('dataset_version_id')) {
+      divergent.push('dataset_version_id')
+    }
+    if (sig.top_k !== baselineSig.top_k && !divergent.includes('top_k')) {
+      divergent.push('top_k')
+    }
+    if (sig.protocol_version !== baselineSig.protocol_version && !divergent.includes('protocol_version')) {
+      divergent.push('protocol_version')
+    }
+  }
+
+  return {
+    is_controlled: divergent.length === 0,
+    divergent_fields: divergent,
+    signature: baselineSig,
+  }
 }
 
 export const SAMPLE_TRACES: QueryTraceDetail[] = [

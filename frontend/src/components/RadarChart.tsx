@@ -8,19 +8,19 @@ interface RadarChartProps {
 }
 
 const AXIS_KEYS: (keyof RadarMetricData['metrics'])[] = [
-  'recall_at_10',
+  'recall_at_5',
   'precision_at_5',
+  'mrr_at_5',
+  'ndcg_at_5',
   'faithfulness',
-  'citation_accuracy',
-  'cost_efficiency',
 ]
 
 const AXIS_LABELS: Record<keyof RadarMetricData['metrics'], string> = {
-  recall_at_10: 'Recall@10',
+  recall_at_5: 'Recall@5',
   precision_at_5: 'Precision@5',
+  mrr_at_5: 'MRR@5',
+  ndcg_at_5: 'NDCG@5',
   faithfulness: 'Faithfulness',
-  citation_accuracy: 'Citation Acc.',
-  cost_efficiency: 'Cost Efficiency',
 }
 
 export const RadarChart: React.FC<RadarChartProps> = ({
@@ -74,7 +74,7 @@ export const RadarChart: React.FC<RadarChartProps> = ({
       <div className="flex items-center justify-between mb-2">
         <div>
           <h3 className="text-sm font-semibold text-white">Multi-Dimensional Metric Radar</h3>
-          <p className="text-xs text-slate-400">Comparing trade-offs across 5 core evaluation axes</p>
+          <p className="text-xs text-slate-400">Authoritative IR & Generation Metrics (engine/metrics)</p>
         </div>
         {hoveredMetric && (
           <div className="text-xs font-mono bg-slate-950 px-2 py-0.5 rounded border border-slate-800 text-indigo-300">

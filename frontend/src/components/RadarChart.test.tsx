@@ -9,11 +9,11 @@ const SAMPLE_RADAR: RadarMetricData[] = [
     name: 'Dense (BGE-M3)',
     color: '#3b82f6',
     metrics: {
-      recall_at_10: 0.98,
+      recall_at_5: 0.98,
       precision_at_5: 0.20,
+      mrr_at_5: 0.98,
+      ndcg_at_5: 0.96,
       faithfulness: 0.96,
-      citation_accuracy: 0.94,
-      cost_efficiency: 0.75,
     },
   },
   {
@@ -21,24 +21,24 @@ const SAMPLE_RADAR: RadarMetricData[] = [
     name: 'BM25 Lexical',
     color: '#f59e0b',
     metrics: {
-      recall_at_10: 0.88,
+      recall_at_5: 0.88,
       precision_at_5: 0.18,
-      faithfulness: 0.89,
-      citation_accuracy: 0.86,
-      cost_efficiency: 0.98,
+      mrr_at_5: 0.88,
+      ndcg_at_5: 0.84,
+      faithfulness: 0.98,
     },
   },
 ]
 
 describe('RadarChart', () => {
-  it('renders 5-axis pentagon labels and chart title', () => {
+  it('renders 5 authoritative backend IR and generation axis labels', () => {
     render(<RadarChart data={SAMPLE_RADAR} />)
     expect(screen.getByText('Multi-Dimensional Metric Radar')).toBeDefined()
-    expect(screen.getByText('Recall@10')).toBeDefined()
+    expect(screen.getByText('Recall@5')).toBeDefined()
     expect(screen.getByText('Precision@5')).toBeDefined()
+    expect(screen.getByText('MRR@5')).toBeDefined()
+    expect(screen.getByText('NDCG@5')).toBeDefined()
     expect(screen.getByText('Faithfulness')).toBeDefined()
-    expect(screen.getByText('Citation Acc.')).toBeDefined()
-    expect(screen.getByText('Cost Efficiency')).toBeDefined()
   })
 
   it('renders series buttons and supports toggle callbacks', () => {
@@ -57,11 +57,11 @@ describe('RadarChart', () => {
         name: 'Zero Metric Run',
         color: '#ef4444',
         metrics: {
-          recall_at_10: 0.0,
+          recall_at_5: 0.0,
           precision_at_5: 0.0,
+          mrr_at_5: 0.0,
+          ndcg_at_5: 0.0,
           faithfulness: 0.0,
-          citation_accuracy: 0.0,
-          cost_efficiency: 0.0,
         },
       },
     ]
@@ -79,11 +79,11 @@ describe('RadarChart', () => {
       name: `Series ${i}`,
       color: `#${i}${i}4488`,
       metrics: {
-        recall_at_10: i * 0.2,
+        recall_at_5: i * 0.2,
         precision_at_5: i * 0.2,
+        mrr_at_5: i * 0.2,
+        ndcg_at_5: i * 0.2,
         faithfulness: i * 0.2,
-        citation_accuracy: i * 0.2,
-        cost_efficiency: i * 0.2,
       },
     }))
 

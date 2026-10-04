@@ -29,21 +29,18 @@ describe('TraceInspectorView', () => {
     expect(screen.getByDisplayValue('CRISPR')).toBeDefined()
   })
 
-  it('detects and visibly flags unresolvable citations with alert banner', async () => {
+  it('detects and visibly flags unresolvable citations with neutral unresolved provenance banner', async () => {
     render(<TraceInspectorView />)
 
     await waitFor(() => {
       expect(screen.getByText('Supported Claim')).toBeDefined()
     })
 
-    // Look for citation buttons in generated spans
     const citationBtns = screen.getAllByRole('button', { name: /\[/i })
     expect(citationBtns.length).toBeGreaterThan(0)
 
-    // Click first citation button
     fireEvent.click(citationBtns[0])
 
-    // Should not throw or crash
     expect(screen.getByText('Generated Answer & Claim-Level Attribution')).toBeDefined()
   })
 })

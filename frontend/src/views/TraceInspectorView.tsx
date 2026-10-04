@@ -299,9 +299,9 @@ export const TraceInspectorView: React.FC = () => {
                         <div className="flex items-center gap-2">
                           <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0" />
                           <div>
-                            <span className="font-semibold font-mono">Unresolved Provenance:</span>
+                            <span className="font-semibold font-mono">Unresolved provenance:</span>
                             <span className="ml-1">
-                              Citation <code className="bg-rose-900/50 px-1 py-0.2 rounded text-white font-mono font-bold">[{unresolvedCitation}]</code> cannot be resolved to any retrieved passage chunk (hallucinated citation or ungrounded claim).
+                              Citation <code className="bg-rose-900/50 px-1 py-0.2 rounded text-white font-mono font-bold">[{unresolvedCitation}]</code> could not be matched to a retrieved passage in this trace.
                             </span>
                           </div>
                         </div>
@@ -341,7 +341,7 @@ export const TraceInspectorView: React.FC = () => {
                                         ? 'bg-slate-800 hover:bg-indigo-600 text-indigo-300 hover:text-white border-slate-700'
                                         : 'bg-amber-950/40 hover:bg-rose-900 text-amber-300 hover:text-white border-amber-500/40'
                                     }`}
-                                    title={isResolvable ? `Jump to chunk ${cit}` : `Unresolvable citation: ${cit}`}
+                                    title={isResolvable ? `Jump to chunk ${cit}` : `Unresolved provenance: ${cit}`}
                                   >
                                     <span>[{cit.split('_').slice(-2).join('_')}]</span>
                                     {isResolvable ? <ExternalLink className="w-2.5 h-2.5" /> : <AlertTriangle className="w-2.5 h-2.5 text-amber-400" />}

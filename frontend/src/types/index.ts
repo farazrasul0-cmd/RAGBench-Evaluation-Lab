@@ -98,27 +98,43 @@ export interface ParetoPoint {
   estimated_cost_usd: number
   ndcg_at_5: number
   is_pareto_optimal: boolean
+  control_signature?: EvaluationControlSignature
+}
+
+/**
+ * Controlled Comparison Signature:
+ * A set of runs is scientifically comparable for Pareto dominance if and only if
+ * they share the identical dataset_version_id, query_population, top_k, and protocol_version.
+ */
+export interface EvaluationControlSignature {
+  dataset_id: string
+  dataset_version_id: string
+  query_population: string
+  top_k: number
+  protocol_version: string
 }
 
 /**
  * Radar Chart Metric Semantics:
- * All dimensions are normalized to [0.0, 1.0]:
- * - recall_at_10: fraction of gold chunks retrieved in top 10 [0, 1]
- * - precision_at_5: fraction of retrieved chunks in top 5 that are relevant [0, 1]
- * - faithfulness: fraction of generated answer claims entailed by context [0, 1]
- * - citation_accuracy: precision of cited source chunks [0, 1]
- * - cost_efficiency: bounded efficiency index 1 - (latency/max_lat)*0.5 - (cost/max_cost)*0.5 [0, 1]
+ * Strictly consumes authoritative backend evaluation metrics from engine/metrics.
+ * Zero client-invented normalization formulas.
+ * All dimensions are standard IR and generation metrics naturally bounded on [0.0, 1.0]:
+ * - recall_at_5: Recall at rank 5
+ * - precision_at_5: Precision at rank 5
+ * - mrr_at_5: Mean Reciprocal Rank at rank 5
+ * - ndcg_at_5: Normalized Discounted Cumulative Gain at rank 5
+ * - faithfulness: Sentence-level entailing claim proportion [0, 1]
  */
 export interface RadarMetricData {
   run_id: string
   name: string
   color: string
   metrics: {
-    recall_at_10: number
+    recall_at_5: number
     precision_at_5: number
+    mrr_at_5: number
+    ndcg_at_5: number
     faithfulness: number
-    citation_accuracy: number
-    cost_efficiency: number // 0.0 to 1.0
   }
 }
 

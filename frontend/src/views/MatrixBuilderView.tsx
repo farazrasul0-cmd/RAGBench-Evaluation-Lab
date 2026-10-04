@@ -14,9 +14,9 @@ import {
 import type { MatrixSweepSelection, MatrixPreviewData } from '../types'
 import { previewMatrix, exportMatrixYaml } from '../api/client'
 
-const CHUNKING_OPTIONS = ['fixed_size', 'sentence', 'recursive', 'semantic']
-const CHUNK_SIZE_OPTIONS = [256, 512, 1024]
-const OVERLAP_OPTIONS = [32, 64, 128]
+const CHUNKING_OPTIONS = ['fixed', 'sentence', 'recursive', 'semantic']
+const CHUNK_SIZE_OPTIONS = [200, 256, 512, 1024]
+const OVERLAP_OPTIONS = [20, 32, 64, 128]
 const EMBEDDING_OPTIONS = [
   'BAAI/bge-m3',
   'sentence-transformers/all-MiniLM-L6-v2',
@@ -124,12 +124,12 @@ export const MatrixBuilderView: React.FC = () => {
   const loadPreset = (type: 'rq3' | 'fast' | 'full') => {
     if (type === 'rq3') {
       setName('rq3_multilingual_study_matrix')
-      setDescription('Exact replication of approved RQ3 BAAI/bge-m3 12-run factorial sweep (eb3bb4d) evaluating cross-lingual transfer on N=25 matched units.')
-      setDatasetId('scifact_multilingual')
-      setDatasetVersionId('v1.0')
-      setChunking(['sentence'])
-      setChunkSizes([512])
-      setChunkOverlaps([64])
+      setDescription('Exact replication of approved RQ3 BAAI/bge-m3 12-run factorial sweep (eb3bb4d) evaluating cross-lingual transfer on N=25 matched units (fixed 200/20).')
+      setDatasetId('multilingual_canonical')
+      setDatasetVersionId('dd59f087-86ff-4872-925f-adb03fc8d9a2')
+      setChunking(['fixed'])
+      setChunkSizes([200])
+      setChunkOverlaps([20])
       setEmbeddings(['BAAI/bge-m3'])
       setRetrievals(['dense', 'bm25', 'hybrid'])
       setRerankers(['none'])

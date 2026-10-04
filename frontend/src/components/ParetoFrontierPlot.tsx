@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import type { ParetoPoint } from '../types'
+import { validateControlledComparison } from '../api/client'
 
 interface ParetoFrontierPlotProps {
   points: ParetoPoint[]
@@ -35,12 +36,18 @@ export const ParetoFrontierPlot: React.FC<ParetoFrontierPlotProps> = ({
     return { minLatency: minL, maxLatency: maxL, minRecall: minR, maxRecall: maxR }
   }, [points])
 
-  // Calculate and sort Pareto optimal points
+  // Validate controlled comparison conditions across points
+  const controlValidation = useMemo(() => {
+    return validateControlledComparison(points)
+  }, [points])
+
+  // Calculate and sort Pareto optimal points (only valid when conditions are controlled)
   const paretoPoints = useMemo(() => {
+    if (!controlValidation.is_controlled) return []
     return points
       .filter((p) => p.is_pareto_optimal)
       .sort((a, b) => a.latency_ms - b.latency_ms)
-  }, [points])
+  }, [controlValidation.is_controlled, points])
 
   // Coordinate scales
   const xScale = (lat: number) => {
@@ -51,15 +58,15 @@ export const ParetoFrontierPlot: React.FC<ParetoFrontierPlotProps> = ({
     return margin.top + innerHeight - ((rec - minRecall) / (maxRecall - minRecall || 1)) * innerHeight
   }
 
-  // Build SVG path for frontier curve
+  // Build SVG path for frontier curve (suppressed if conditions are uncontrolled)
   const frontierPath = useMemo(() => {
-    if (paretoPoints.length === 0) return ''
+    if (!controlValidation.is_controlled || paretoPoints.length === 0) return ''
     return paretoPoints.reduce((acc, pt, idx) => {
       const x = margin.left + ((pt.latency_ms - minLatency) / (maxLatency - minLatency || 1)) * innerWidth
       const y = margin.top + innerHeight - ((pt.recall_at_5 - minRecall) / (maxRecall - minRecall || 1)) * innerHeight
       return idx === 0 ? `M ${x},${y}` : `${acc} L ${x},${y}`
     }, '')
-  }, [paretoPoints, minLatency, maxLatency, minRecall, maxRecall, margin.left, margin.top, innerWidth, innerHeight])
+  }, [controlValidation.is_controlled, paretoPoints, minLatency, maxLatency, minRecall, maxRecall, margin.left, margin.top, innerWidth, innerHeight])
 
   const getColor = (strategy: string) => {
     switch (strategy.toLowerCase()) {
@@ -82,7 +89,18 @@ export const ParetoFrontierPlot: React.FC<ParetoFrontierPlotProps> = ({
     <div className="relative bg-slate-900 border border-slate-800 rounded-xl p-4 flex flex-col">
       <div className="flex items-center justify-between mb-2">
         <div>
-          <h3 className="text-sm font-semibold text-white">Pareto Efficiency Frontier</h3>
+          <div className="flex items-center gap-2">
+            <h3 className="text-sm font-semibold text-white">Pareto Efficiency Frontier</h3>
+            {controlValidation.is_controlled ? (
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 font-mono">
+                Controlled Validated
+              </span>
+            ) : (
+              <span className="text-[10px] px-1.5 py-0.2 rounded bg-rose-500/10 text-rose-400 border border-rose-500/30 font-mono">
+                Incomparable Conditions
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400">Recall@5 vs. End-to-End Latency (ms)</p>
         </div>
         <div className="flex items-center gap-3 text-xs">
@@ -104,6 +122,12 @@ export const ParetoFrontierPlot: React.FC<ParetoFrontierPlotProps> = ({
           </div>
         </div>
       </div>
+
+      {!controlValidation.is_controlled && (
+        <div className="mb-2 p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/40 text-[11px] text-rose-200 flex items-center gap-2">
+          <span>🛑 Incomparable Evaluation Conditions: Selected sweeps differ in [{controlValidation.divergent_fields.join(', ')}]. Frontier calculation is strictly disabled to prevent invalid scientific comparisons.</span>
+        </div>
+      )}
 
       <div className="w-full overflow-hidden flex justify-center">
         <svg
