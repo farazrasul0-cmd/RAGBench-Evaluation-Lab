@@ -81,3 +81,16 @@ class BenchmarkRepository:
         )
         res = await self.session.execute(stmt)
         return res.scalar_one_or_none()
+
+    async def list_benchmarks(
+        self, limit: int = 50, offset: int = 0
+    ) -> list[BenchmarkVersion]:
+        """Fetch list of BenchmarkVersions ordered by creation date descending."""
+        stmt = (
+            select(BenchmarkVersion)
+            .order_by(BenchmarkVersion.created_at.desc())
+            .offset(offset)
+            .limit(limit)
+        )
+        res = await self.session.execute(stmt)
+        return list(res.scalars().all())
