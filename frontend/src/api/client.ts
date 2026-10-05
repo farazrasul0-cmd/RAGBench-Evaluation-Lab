@@ -4,6 +4,7 @@
 
 import type {
   ComparisonRunSummary,
+  EvaluationControlSignature,
   MatrixConfigurationPoint,
   MatrixPreviewData,
   MatrixSweepSelection,
@@ -226,6 +227,22 @@ export function computeParetoFrontier(points: ParetoPoint[]): ParetoPoint[] {
   })
 }
 
+export const CANONICAL_PHASE_G_CONTROL: EvaluationControlSignature = {
+  dataset_id: 'multilingual_canonical',
+  dataset_version_id: 'dd59f087-86ff-4872-925f-adb03fc8d9a2',
+  benchmark_hash: 'bge_m3_frozen_eval',
+  query_population: 'N=25 matched information units',
+  top_k: 5,
+  protocol_version: 'ragbench-protocol-v1.0',
+  metrics_version: 'metrics-v1.0',
+  chunking_strategy: 'fixed',
+  chunk_size: 200,
+  chunk_overlap: 20,
+  embedding_model: 'BAAI/bge-m3',
+  embedding_dimension: 1024,
+  reranker_strategy: 'none',
+}
+
 export function getReferenceParetoPoints(): ParetoPoint[] {
   const raw: ParetoPoint[] = REFERENCE_RUNS.map((r) => ({
     run_id: r.run_id,
@@ -237,6 +254,7 @@ export function getReferenceParetoPoints(): ParetoPoint[] {
     estimated_cost_usd: r.strategy === 'bm25' ? 0.0002 : 0.0015,
     ndcg_at_5: r.ndcg_at_5,
     is_pareto_optimal: false,
+    control_signature: CANONICAL_PHASE_G_CONTROL,
   }))
   return computeParetoFrontier(raw)
 }
@@ -298,17 +316,12 @@ export function getReferenceRadarData(): RadarMetricData[] {
 export interface ControlledValidationResult {
   is_controlled: boolean
   divergent_fields: string[]
-  signature?: {
-    dataset_id: string
-    dataset_version_id: string
-    query_population: string
-    top_k: number
-    protocol_version: string
-  }
+  signature?: EvaluationControlSignature
 }
 
 /**
  * Authoritative evaluation validation: verifies whether runs share identical controlled experimental conditions.
+ * Compares all canonical dimensions: dataset, population, protocol, top-k, chunking, and embeddings.
  */
 export function validateControlledComparison(points: ParetoPoint[]): ControlledValidationResult {
   if (points.length <= 1) {
@@ -334,11 +347,35 @@ export function validateControlledComparison(points: ParetoPoint[]): ControlledV
     if (sig.dataset_version_id !== baselineSig.dataset_version_id && !divergent.includes('dataset_version_id')) {
       divergent.push('dataset_version_id')
     }
+    if (sig.query_population !== baselineSig.query_population && !divergent.includes('query_population')) {
+      divergent.push('query_population')
+    }
     if (sig.top_k !== baselineSig.top_k && !divergent.includes('top_k')) {
       divergent.push('top_k')
     }
     if (sig.protocol_version !== baselineSig.protocol_version && !divergent.includes('protocol_version')) {
       divergent.push('protocol_version')
+    }
+    if (sig.metrics_version && baselineSig.metrics_version && sig.metrics_version !== baselineSig.metrics_version && !divergent.includes('metrics_version')) {
+      divergent.push('metrics_version')
+    }
+    if (sig.chunking_strategy !== baselineSig.chunking_strategy && !divergent.includes('chunking_strategy')) {
+      divergent.push('chunking_strategy')
+    }
+    if (sig.chunk_size !== baselineSig.chunk_size && !divergent.includes('chunk_size')) {
+      divergent.push('chunk_size')
+    }
+    if (sig.chunk_overlap !== baselineSig.chunk_overlap && !divergent.includes('chunk_overlap')) {
+      divergent.push('chunk_overlap')
+    }
+    if (sig.embedding_model !== baselineSig.embedding_model && !divergent.includes('embedding_model')) {
+      divergent.push('embedding_model')
+    }
+    if (sig.embedding_dimension !== baselineSig.embedding_dimension && !divergent.includes('embedding_dimension')) {
+      divergent.push('embedding_dimension')
+    }
+    if (sig.reranker_strategy && baselineSig.reranker_strategy && sig.reranker_strategy !== baselineSig.reranker_strategy && !divergent.includes('reranker_strategy')) {
+      divergent.push('reranker_strategy')
     }
   }
 

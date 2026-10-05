@@ -52,3 +52,6 @@ Thumbs.db
 *.db-wal
 *.db-shm
 
+
+test_multilingual_pipeline_ws/
+backend/test_multilingual_pipeline_ws/

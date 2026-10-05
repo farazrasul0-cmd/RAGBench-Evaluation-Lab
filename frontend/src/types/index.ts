@@ -109,9 +109,18 @@ export interface ParetoPoint {
 export interface EvaluationControlSignature {
   dataset_id: string
   dataset_version_id: string
+  benchmark_hash?: string
   query_population: string
   top_k: number
   protocol_version: string
+  metrics_version?: string
+  chunking_strategy: string
+  chunk_size: number
+  chunk_overlap: number
+  embedding_model: string
+  embedding_dimension: number
+  reranker_strategy?: string
+  signature_hash?: string
 }
 
 /**

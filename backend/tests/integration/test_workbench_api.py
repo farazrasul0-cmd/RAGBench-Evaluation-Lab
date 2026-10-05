@@ -123,3 +123,95 @@ def test_list_benchmarks_endpoint():
     assert response.status_code == 200
     data = response.json()
     assert isinstance(data, list)
+
+
+def test_pareto_validation_identical_controls():
+    """Verify Pareto comparison validation passes when experimental controls are strictly identical."""
+    sig1 = {
+        "dataset_id": "multilingual_canonical",
+        "dataset_version_id": "dd59f087-86ff-4872-925f-adb03fc8d9a2",
+        "benchmark_hash": "bge_m3_frozen_eval",
+        "query_population": "N=25 matched information units",
+        "top_k": 5,
+        "protocol_version": "ragbench-protocol-v1.0",
+        "metrics_version": "metrics-v1.0",
+        "chunking_strategy": "fixed",
+        "chunk_size": 200,
+        "chunk_overlap": 20,
+        "embedding_model": "BAAI/bge-m3",
+        "embedding_dimension": 1024,
+        "reranker_strategy": "none",
+    }
+    sig2 = dict(sig1)
+
+    payload = {"signatures": [sig1, sig2]}
+    response = client.post("/api/v1/experiments/pareto/validate", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_comparable"] is True
+    assert data["divergent_dimensions"] == []
+    assert "Controlled comparison verified" in data["validation_notice"]
+    assert data["canonical_signature"]["embedding_model"] == "BAAI/bge-m3"
+
+
+def test_pareto_validation_divergent_chunking():
+    """Verify Pareto comparison validation fails when chunking strategies/geometries diverge."""
+    sig1 = {
+        "dataset_id": "multilingual_canonical",
+        "dataset_version_id": "dd59f087-86ff-4872-925f-adb03fc8d9a2",
+        "query_population": "N=25 matched information units",
+        "top_k": 5,
+        "protocol_version": "ragbench-protocol-v1.0",
+        "metrics_version": "metrics-v1.0",
+        "chunking_strategy": "fixed",
+        "chunk_size": 200,
+        "chunk_overlap": 20,
+        "embedding_model": "BAAI/bge-m3",
+        "embedding_dimension": 1024,
+        "reranker_strategy": "none",
+    }
+    sig2 = dict(sig1)
+    sig2["chunking_strategy"] = "sentence"
+    sig2["chunk_size"] = 512
+    sig2["chunk_overlap"] = 64
+
+    payload = {"signatures": [sig1, sig2]}
+    response = client.post("/api/v1/experiments/pareto/validate", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_comparable"] is False
+    assert len(data["divergent_dimensions"]) == 3
+    assert any("chunking_strategy" in d for d in data["divergent_dimensions"])
+    assert any("chunk_size" in d for d in data["divergent_dimensions"])
+    assert any("chunk_overlap" in d for d in data["divergent_dimensions"])
+    assert "Pareto frontier curve suppressed" in data["validation_notice"]
+
+
+def test_pareto_validation_divergent_embeddings():
+    """Verify Pareto comparison validation fails when embedding models or dimensions diverge."""
+    sig1 = {
+        "dataset_id": "multilingual_canonical",
+        "dataset_version_id": "dd59f087-86ff-4872-925f-adb03fc8d9a2",
+        "query_population": "N=25 matched information units",
+        "top_k": 5,
+        "protocol_version": "ragbench-protocol-v1.0",
+        "metrics_version": "metrics-v1.0",
+        "chunking_strategy": "fixed",
+        "chunk_size": 200,
+        "chunk_overlap": 20,
+        "embedding_model": "BAAI/bge-m3",
+        "embedding_dimension": 1024,
+        "reranker_strategy": "none",
+    }
+    sig2 = dict(sig1)
+    sig2["embedding_model"] = "sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2"
+    sig2["embedding_dimension"] = 384
+
+    payload = {"signatures": [sig1, sig2]}
+    response = client.post("/api/v1/experiments/pareto/validate", json=payload)
+    assert response.status_code == 200
+    data = response.json()
+    assert data["is_comparable"] is False
+    assert any("embedding_model" in d for d in data["divergent_dimensions"])
+    assert any("embedding_dimension" in d for d in data["divergent_dimensions"])
+    assert "Pareto frontier curve suppressed" in data["validation_notice"]

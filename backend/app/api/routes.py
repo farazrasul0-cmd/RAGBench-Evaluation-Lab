@@ -17,10 +17,13 @@ from app.db.repositories.experiment import ExperimentRepository
 from app.db.repositories.query_trace import QueryTraceRepository
 from app.db.session import get_async_engine, get_session_factory
 from app.schemas.workbench import (
+    CanonicalControlSignature,
     MatrixConfigurationPoint,
     MatrixPreviewRequest,
     MatrixPreviewResponse,
     MatrixYamlResponse,
+    ParetoComparisonValidationRequest,
+    ParetoComparisonValidationResponse,
 )
 
 api_router = APIRouter()
@@ -243,6 +246,30 @@ async def preview_matrix_sweep(request: MatrixPreviewRequest) -> MatrixPreviewRe
         "baseline_reference_commit": "eb3bb4d",
     }
 
+    c_strat = request.chunking_strategies[0] if request.chunking_strategies else "fixed"
+    c_sz = request.chunk_sizes[0] if request.chunk_sizes else 200
+    c_ov = request.chunk_overlaps[0] if request.chunk_overlaps else 20
+    emb_m = request.embedding_models[0] if request.embedding_models else "BAAI/bge-m3"
+    emb_dim = 1024 if "bge-m3" in emb_m.lower() else 384
+    rerank_strat = request.rerankers[0] if request.rerankers else "none"
+    top_k = request.top_k_values[0] if request.top_k_values else 5
+
+    canon_sig = CanonicalControlSignature(
+        dataset_id=request.dataset_id,
+        dataset_version_id=request.dataset_version_id,
+        benchmark_hash="bge_m3_frozen_eval",
+        query_population="N=25 matched information units",
+        top_k=top_k,
+        protocol_version="ragbench-protocol-v1.0",
+        metrics_version="metrics-v1.0",
+        chunking_strategy=c_strat,
+        chunk_size=c_sz,
+        chunk_overlap=c_ov,
+        embedding_model=emb_m,
+        embedding_dimension=emb_dim,
+        reranker_strategy=rerank_strat,
+    )
+
     return MatrixPreviewResponse(
         total_combinations=total_count,
         complexity_category=category,
@@ -252,6 +279,7 @@ async def preview_matrix_sweep(request: MatrixPreviewRequest) -> MatrixPreviewRe
         compatibility_status=status,
         validation_warnings=warnings,
         controlled_dimensions=controlled_dims,
+        canonical_control_signature=canon_sig,
         sample_configurations=sample_points,
     )
 
@@ -367,3 +395,92 @@ async def list_benchmarks(
         }
         for b in benchmarks
     ]
+
+
+
+@api_router.post(
+    "/experiments/pareto/validate",
+    summary="Validate Controlled Experimental Comparison",
+)
+async def validate_pareto_comparison(
+    request: ParetoComparisonValidationRequest,
+) -> ParetoComparisonValidationResponse:
+    """Validate whether candidate experiment runs share identical controlled conditions.
+
+    A rigorous Pareto comparison requires identical evaluation controls:
+    dataset_id, dataset_version_id, query_population, top_k, protocol_version,
+    metrics_version, chunking (strategy, chunk_size, chunk_overlap), and
+    embedding (model, dimension).
+    """
+    signatures = request.signatures
+    if not signatures:
+        return ParetoComparisonValidationResponse(
+            is_comparable=True,
+            divergent_dimensions=[],
+            canonical_signature=None,
+            validation_notice="No candidate signatures provided; trivially comparable.",
+        )
+
+    base = signatures[0]
+    divergent: set[str] = set()
+
+    for sig in signatures[1:]:
+        if sig.dataset_id != base.dataset_id:
+            divergent.add(f"dataset_id ('{base.dataset_id}' vs '{sig.dataset_id}')")
+        if sig.dataset_version_id != base.dataset_version_id:
+            msg = f"dataset_version_id ('{base.dataset_version_id}' vs '{sig.dataset_version_id}')"
+            divergent.add(msg)
+        if sig.query_population != base.query_population:
+            msg = f"query_population ('{base.query_population}' vs '{sig.query_population}')"
+            divergent.add(msg)
+        if sig.top_k != base.top_k:
+            divergent.add(f"top_k ({base.top_k} vs {sig.top_k})")
+        if sig.protocol_version != base.protocol_version:
+            msg = f"protocol_version ('{base.protocol_version}' vs '{sig.protocol_version}')"
+            divergent.add(msg)
+        if sig.metrics_version != base.metrics_version:
+            divergent.add(f"metrics_version ('{base.metrics_version}' vs '{sig.metrics_version}')")
+        if sig.chunking_strategy != base.chunking_strategy:
+            msg = f"chunking_strategy ('{base.chunking_strategy}' vs '{sig.chunking_strategy}')"
+            divergent.add(msg)
+        if sig.chunk_size != base.chunk_size:
+            divergent.add(f"chunk_size ({base.chunk_size} vs {sig.chunk_size})")
+        if sig.chunk_overlap != base.chunk_overlap:
+            divergent.add(f"chunk_overlap ({base.chunk_overlap} vs {sig.chunk_overlap})")
+        if sig.embedding_model != base.embedding_model:
+            divergent.add(f"embedding_model ('{base.embedding_model}' vs '{sig.embedding_model}')")
+        if sig.embedding_dimension != base.embedding_dimension:
+            msg = f"embedding_dimension ({base.embedding_dimension} vs {sig.embedding_dimension})"
+            divergent.add(msg)
+        if sig.reranker_strategy != base.reranker_strategy:
+            msg = f"reranker_strategy ('{base.reranker_strategy}' vs '{sig.reranker_strategy}')"
+            divergent.add(msg)
+
+    divergent_list = sorted(divergent)
+    if divergent_list:
+        dim_str = ", ".join(divergent_list)
+        return ParetoComparisonValidationResponse(
+            is_comparable=False,
+            divergent_dimensions=divergent_list,
+            canonical_signature=base,
+            validation_notice=(
+                f"Controlled experimental condition violation: Candidate runs diverge across "
+                f"{len(divergent_list)} control dimension(s): {dim_str}. "
+                "Pareto frontier curve suppressed to maintain research validity."
+            ),
+        )
+
+    summary_sig = (
+        f"[{base.dataset_id} | {base.chunking_strategy} {base.chunk_size}/{base.chunk_overlap} | "
+        f"{base.embedding_model} ({base.embedding_dimension}d) | K={base.top_k} | "
+        f"{base.protocol_version}]"
+    )
+    return ParetoComparisonValidationResponse(
+        is_comparable=True,
+        divergent_dimensions=[],
+        canonical_signature=base,
+        validation_notice=(
+            f"All {len(signatures)} runs share identical canonical control signature "
+            f"{summary_sig}. Controlled comparison verified."
+        ),
+    )

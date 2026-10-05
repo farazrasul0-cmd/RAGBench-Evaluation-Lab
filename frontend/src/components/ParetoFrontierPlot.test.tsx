@@ -4,6 +4,22 @@ import { ParetoFrontierPlot } from './ParetoFrontierPlot'
 import { computeParetoFrontier, validateControlledComparison } from '../api/client'
 import type { ParetoPoint } from '../types'
 
+const CANONICAL_TEST_SIG = {
+  dataset_id: 'multilingual_canonical',
+  dataset_version_id: 'dd59f087-86ff-4872-925f-adb03fc8d9a2',
+  benchmark_hash: 'bge_m3_frozen_eval',
+  query_population: 'N=25 matched information units',
+  top_k: 5,
+  protocol_version: 'ragbench-protocol-v1.0',
+  metrics_version: 'metrics-v1.0',
+  chunking_strategy: 'fixed',
+  chunk_size: 200,
+  chunk_overlap: 20,
+  embedding_model: 'BAAI/bge-m3',
+  embedding_dimension: 1024,
+  reranker_strategy: 'none',
+}
+
 const SAMPLE_POINTS: ParetoPoint[] = [
   {
     run_id: 'run-1',
@@ -15,13 +31,7 @@ const SAMPLE_POINTS: ParetoPoint[] = [
     estimated_cost_usd: 0.001,
     ndcg_at_5: 0.96,
     is_pareto_optimal: true,
-    control_signature: {
-      dataset_id: 'multilingual_canonical',
-      dataset_version_id: 'v1.0',
-      query_population: 'N=25',
-      top_k: 5,
-      protocol_version: 'v1.0',
-    },
+    control_signature: { ...CANONICAL_TEST_SIG },
   },
   {
     run_id: 'run-2',
@@ -33,13 +43,7 @@ const SAMPLE_POINTS: ParetoPoint[] = [
     estimated_cost_usd: 0.0001,
     ndcg_at_5: 0.84,
     is_pareto_optimal: true,
-    control_signature: {
-      dataset_id: 'multilingual_canonical',
-      dataset_version_id: 'v1.0',
-      query_population: 'N=25',
-      top_k: 5,
-      protocol_version: 'v1.0',
-    },
+    control_signature: { ...CANONICAL_TEST_SIG },
   },
   {
     run_id: 'run-3',
@@ -51,13 +55,7 @@ const SAMPLE_POINTS: ParetoPoint[] = [
     estimated_cost_usd: 0.001,
     ndcg_at_5: 0.42,
     is_pareto_optimal: false,
-    control_signature: {
-      dataset_id: 'multilingual_canonical',
-      dataset_version_id: 'v1.0',
-      query_population: 'N=25',
-      top_k: 5,
-      protocol_version: 'v1.0',
-    },
+    control_signature: { ...CANONICAL_TEST_SIG },
   },
 ]
 
@@ -87,7 +85,7 @@ describe('ParetoFrontierPlot', () => {
     }
   })
 
-  it('detects divergent control dimensions and suppresses frontier calculation', () => {
+  it('detects divergent top_k and suppresses frontier calculation', () => {
     const divergentPoints: ParetoPoint[] = [
       {
         run_id: 'run-k5',
@@ -98,13 +96,7 @@ describe('ParetoFrontierPlot', () => {
         estimated_cost_usd: 0,
         ndcg_at_5: 0,
         is_pareto_optimal: true,
-        control_signature: {
-          dataset_id: 'ds1',
-          dataset_version_id: 'v1',
-          query_population: 'N=25',
-          top_k: 5,
-          protocol_version: 'v1.0',
-        },
+        control_signature: { ...CANONICAL_TEST_SIG, top_k: 5 },
       },
       {
         run_id: 'run-k10',
@@ -115,19 +107,101 @@ describe('ParetoFrontierPlot', () => {
         estimated_cost_usd: 0,
         ndcg_at_5: 0,
         is_pareto_optimal: true,
-        control_signature: {
-          dataset_id: 'ds1',
-          dataset_version_id: 'v1',
-          query_population: 'N=25',
-          top_k: 10, // Divergent top_k!
-          protocol_version: 'v1.0',
-        },
+        control_signature: { ...CANONICAL_TEST_SIG, top_k: 10 },
       },
     ]
 
     render(<ParetoFrontierPlot points={divergentPoints} />)
     expect(screen.getByText('Incomparable Conditions')).toBeDefined()
     expect(screen.getByText(/Incomparable Evaluation Conditions: Selected sweeps differ in \[top_k\]/i)).toBeDefined()
+  })
+
+  it('detects divergent chunking configuration and suppresses frontier calculation', () => {
+    const divergentPoints: ParetoPoint[] = [
+      {
+        run_id: 'run-fixed',
+        name: 'Fixed 200/20',
+        strategy: 'dense',
+        recall_at_5: 0.92,
+        latency_ms: 25,
+        estimated_cost_usd: 0,
+        ndcg_at_5: 0.90,
+        is_pareto_optimal: true,
+        control_signature: {
+          ...CANONICAL_TEST_SIG,
+          chunking_strategy: 'fixed',
+          chunk_size: 200,
+          chunk_overlap: 20,
+        },
+      },
+      {
+        run_id: 'run-sentence',
+        name: 'Sentence 512/64',
+        strategy: 'dense',
+        recall_at_5: 0.94,
+        latency_ms: 32,
+        estimated_cost_usd: 0,
+        ndcg_at_5: 0.92,
+        is_pareto_optimal: true,
+        control_signature: {
+          ...CANONICAL_TEST_SIG,
+          chunking_strategy: 'sentence',
+          chunk_size: 512,
+          chunk_overlap: 64,
+        },
+      },
+    ]
+
+    render(<ParetoFrontierPlot points={divergentPoints} />)
+    expect(screen.getByText('Incomparable Conditions')).toBeDefined()
+    expect(
+      screen.getByText(
+        /Incomparable Evaluation Conditions: Selected sweeps differ in \[chunking_strategy, chunk_size, chunk_overlap\]/i
+      )
+    ).toBeDefined()
+  })
+
+  it('detects divergent embedding models/dimensions and suppresses frontier calculation', () => {
+    const divergentPoints: ParetoPoint[] = [
+      {
+        run_id: 'run-bgem3',
+        name: 'BAAI/bge-m3 1024d',
+        strategy: 'dense',
+        recall_at_5: 0.98,
+        latency_ms: 38,
+        estimated_cost_usd: 0,
+        ndcg_at_5: 0.96,
+        is_pareto_optimal: true,
+        control_signature: {
+          ...CANONICAL_TEST_SIG,
+          embedding_model: 'BAAI/bge-m3',
+          embedding_dimension: 1024,
+        },
+      },
+      {
+        run_id: 'run-minilm',
+        name: 'MiniLM 384d',
+        strategy: 'dense',
+        recall_at_5: 0.85,
+        latency_ms: 15,
+        estimated_cost_usd: 0,
+        ndcg_at_5: 0.82,
+        is_pareto_optimal: true,
+        control_signature: {
+          ...CANONICAL_TEST_SIG,
+          embedding_model: 'sentence-transformers/paraphrase-multilingual-MiniLM-L12-v2',
+          embedding_dimension: 384,
+        },
+      },
+    ]
+
+    render(<ParetoFrontierPlot points={divergentPoints} />)
+    expect(screen.getByText('Incomparable Conditions')).toBeDefined()
+    expect(
+      screen.getByText(
+        /Incomparable Evaluation Conditions: Selected sweeps differ in \[embedding_model, embedding_dimension\]/i
+      )
+    ).toBeDefined()
   })
 
   it('verifies validateControlledComparison directly', () => {
