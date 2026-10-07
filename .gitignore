@@ -55,3 +55,7 @@ Thumbs.db
 
 test_multilingual_pipeline_ws/
 backend/test_multilingual_pipeline_ws/
+
+# Generated reports
+reports/
+backend/reports/

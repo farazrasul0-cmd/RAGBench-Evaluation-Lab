@@ -26,9 +26,7 @@ class CanonicalControlSignature(BaseModel):
     signature_hash: str = ""
 
 
-def compute_control_signature(
-    config: dict[str, Any], top_k: int = 5
-) -> CanonicalControlSignature:
+def compute_control_signature(config: dict[str, Any], top_k: int = 5) -> CanonicalControlSignature:
     """Derive deterministic canonical control signature from experiment configuration."""
     params = config.get("parameters", {})
     chunk_cfg = params.get("chunking", {})
@@ -37,9 +35,7 @@ def compute_control_signature(
     rerank_cfg = params.get("reranker", {})
 
     dataset_id = str(
-        dataset_cfg.get("dataset_id")
-        or config.get("dataset_id")
-        or "multilingual_canonical"
+        dataset_cfg.get("dataset_id") or config.get("dataset_id") or "multilingual_canonical"
     )
     dataset_version_id = str(
         dataset_cfg.get("dataset_version_id")
@@ -47,12 +43,8 @@ def compute_control_signature(
         or "dd59f087-86ff-4872-925f-adb03fc8d9a2"
     )
     benchmark_hash = str(config.get("benchmark_hash") or "bge_m3_frozen_eval")
-    query_pop = str(
-        config.get("query_population") or "N=25 matched information units"
-    )
-    protocol = str(
-        config.get("evaluation_protocol_version") or "ragbench-protocol-v1.0"
-    )
+    query_pop = str(config.get("query_population") or "N=25 matched information units")
+    protocol = str(config.get("evaluation_protocol_version") or "ragbench-protocol-v1.0")
     metrics_ver = str(config.get("metric_definition_version") or "metrics-v1.0")
 
     c_strat = str(chunk_cfg.get("strategy") or "fixed")
@@ -60,10 +52,7 @@ def compute_control_signature(
     c_ov = int(chunk_cfg.get("chunk_overlap") or 20)
 
     emb_model = str(emb_cfg.get("model_name") or "BAAI/bge-m3")
-    emb_dim = int(
-        emb_cfg.get("dimension")
-        or (1024 if "bge-m3" in emb_model.lower() else 384)
-    )
+    emb_dim = int(emb_cfg.get("dimension") or (1024 if "bge-m3" in emb_model.lower() else 384))
     rerank_strat = str(rerank_cfg.get("strategy") or "none")
 
     canonical_repr = (
@@ -117,15 +106,11 @@ class MatrixPreviewRequest(BaseModel):
     )
     dataset_id: str = Field(default="multilingual_canonical")
     dataset_version_id: str = Field(default="dd59f087-86ff-4872-925f-adb03fc8d9a2")
-    chunking_strategies: list[str] = Field(
-        default_factory=lambda: ["fixed", "sentence"]
-    )
+    chunking_strategies: list[str] = Field(default_factory=lambda: ["fixed", "sentence"])
     chunk_sizes: list[int] = Field(default_factory=lambda: [200, 512])
     chunk_overlaps: list[int] = Field(default_factory=lambda: [20])
     embedding_models: list[str] = Field(default_factory=lambda: ["BAAI/bge-m3"])
-    retrieval_strategies: list[str] = Field(
-        default_factory=lambda: ["dense", "bm25", "hybrid"]
-    )
+    retrieval_strategies: list[str] = Field(default_factory=lambda: ["dense", "bm25", "hybrid"])
     rerankers: list[str] = Field(default_factory=lambda: ["none"])
     generation_models: list[str] = Field(default_factory=lambda: ["none"])
     top_k_values: list[int] = Field(default_factory=lambda: [5])

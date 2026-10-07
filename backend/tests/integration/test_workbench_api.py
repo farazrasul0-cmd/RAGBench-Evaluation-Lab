@@ -1,6 +1,5 @@
 """Integration tests for Academic Research Workbench REST API endpoints."""
 
-import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
@@ -65,7 +64,10 @@ def test_matrix_preview_incompatible_chunk_geometry():
     data = response.json()
     assert data["is_executable"] is False
     assert data["compatibility_status"] == "INCOMPATIBLE"
-    assert any("overlap (100) must be strictly less than chunk_size (100)" in w for w in data["validation_warnings"])
+    assert any(
+        "overlap (100) must be strictly less than chunk_size (100)" in w
+        for w in data["validation_warnings"]
+    )
 
 
 def test_matrix_yaml_export():
@@ -126,7 +128,7 @@ def test_list_benchmarks_endpoint():
 
 
 def test_pareto_validation_identical_controls():
-    """Verify Pareto comparison validation passes when experimental controls are strictly identical."""
+    """Verify Pareto comparison validation passes when experimental controls are identical."""
     sig1 = {
         "dataset_id": "multilingual_canonical",
         "dataset_version_id": "dd59f087-86ff-4872-925f-adb03fc8d9a2",

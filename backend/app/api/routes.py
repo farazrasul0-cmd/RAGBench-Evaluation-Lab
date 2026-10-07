@@ -397,7 +397,6 @@ async def list_benchmarks(
     ]
 
 
-
 @api_router.post(
     "/experiments/pareto/validate",
     summary="Validate Controlled Experimental Comparison",

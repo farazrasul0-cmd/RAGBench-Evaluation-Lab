@@ -26,4 +26,4 @@ def generate_report(output_dir: Path) -> None:
     results = generator.generate_full_report_package(output_dir)
     click.echo(f"Successfully generated {len(results)} publication artifacts:")
     for key, path in results.items():
-        click.echo(f"  • {key}: {path}")
+        click.echo(f"  - {key}: {path}")

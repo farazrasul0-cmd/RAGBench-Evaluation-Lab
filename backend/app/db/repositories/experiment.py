@@ -55,18 +55,14 @@ class ExperimentRepository:
         result = await self.session.execute(stmt)
         return result.scalar_one_or_none()
 
-    async def list_experiments(
-        self, limit: int = 50, offset: int = 0
-    ) -> list[Experiment]:
+    async def list_experiments(self, limit: int = 50, offset: int = 0) -> list[Experiment]:
         """Fetch list of Experiments ordered by creation date descending."""
         stmt = (
             select(Experiment)
             .order_by(Experiment.created_at.desc())
             .offset(offset)
             .limit(limit)
-            .options(
-                selectinload(Experiment.runs).selectinload(ExperimentRun.metric_summaries)
-            )
+            .options(selectinload(Experiment.runs).selectinload(ExperimentRun.metric_summaries))
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
