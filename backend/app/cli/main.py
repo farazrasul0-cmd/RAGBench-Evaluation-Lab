@@ -4,6 +4,7 @@ import click
 
 from app.cli.commands.dataset import dataset_group
 from app.cli.commands.experiment import experiment_group
+from app.cli.commands.report import report_group
 
 
 @click.group(name="ragbench")
@@ -14,6 +15,7 @@ def cli() -> None:
 
 cli.add_command(experiment_group)
 cli.add_command(dataset_group)
+cli.add_command(report_group)
 
 if __name__ == "__main__":
     cli()
