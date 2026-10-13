@@ -12,7 +12,7 @@ from app.services.vector_store import (
 
 
 def test_collection_naming_contract() -> None:
-    """Verify collection naming conforms to SYSTEM_ARCHITECTURE.md contract."""
+    """Verify collection naming conforms to docs/ARCHITECTURE.md contract."""
     chunking_cfg = {"strategy": "recursive", "chunk_size": 512, "chunk_overlap": 64}
     model_name = "BAAI/bge-small-en-v1.5"
     name = compute_collection_name("academic_research", chunking_cfg, model_name)

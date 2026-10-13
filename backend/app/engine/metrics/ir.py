@@ -1,4 +1,4 @@
-"""Information Retrieval (IR) evaluation metrics according to SYSTEM_ARCHITECTURE.md."""
+"""Information Retrieval (IR) evaluation metrics according to docs/ARCHITECTURE.md."""
 
 import math
 from collections.abc import Sequence

@@ -1,0 +1,18 @@
+cff-version: 1.2.0
+message: "If you use this software in your research, please cite it as below."
+authors:
+  - family-names: "Zain"
+    given-names: "Syed Faraz"
+    affiliation: "Sichuan University"
+title: "RAGBench-Evaluation-Lab: A Parameterizable Scientific Benchmarking Platform for RAG Pipelines"
+version: 1.0.0
+date-released: 2026-10-13
+url: "https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab"
+repository-code: "https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab"
+keywords:
+  - "retrieval-augmented generation"
+  - "information retrieval"
+  - "multilingual evaluation"
+  - "reproducible benchmark"
+  - "natural language processing"
+license: MIT

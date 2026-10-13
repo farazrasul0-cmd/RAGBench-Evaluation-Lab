@@ -1,32 +1,44 @@
-# React + TypeScript + Vite
+# RAGBench Research Workbench (Frontend)
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Interactive visual workbench for exploring, analyzing, and validating Retrieval-Augmented Generation experiments.
 
-Currently, two official plugins are available:
+Built with **React 19**, **TypeScript** (strict mode), **Tailwind CSS v4**, and **Vite**.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+---
 
-## React Compiler
+## Views & Capabilities
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+1. **Matrix Builder (`MatrixBuilderView`):**
+   * Configures factorial sweeps across chunking strategies, embeddings, retrieval top-k, and rerankers.
+   * Dynamically estimates combinatorial space and generates reproducible execution specifications.
+2. **Pareto Frontier (`CompareDashboardView`):**
+   * Plots accuracy vs. retrieval latency trade-offs.
+   * Enforces canonical control signature matching to guarantee valid comparisons.
+3. **Metric Radar (`CompareDashboardView`):**
+   * Multi-axial comparison across Recall@K, Precision@K, MRR@K, NDCG@K, and Faithfulness.
+4. **Citation Trace Inspector (`TraceInspectorView`):**
+   * Granular claim-level context attribution inspector distinguishing supported claims from unresolvable provenance.
 
-## Expanding the Oxlint configuration
+---
 
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
+## Development & Testing
 
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+# Install dependencies
+npm ci || npm install
+
+# Start development server (http://localhost:5173)
+npm run dev
+
+# Run Vitest test suite
+npm run test:run
+
+# Run Oxlint static analysis
+npm run lint
+
+# Run strict TypeScript compiler check
+npm run typecheck
+
+# Build production distribution
+npm run build
 ```
-
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.

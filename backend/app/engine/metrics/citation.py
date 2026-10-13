@@ -1,4 +1,4 @@
-"""Citation precision and recall metrics according to SYSTEM_ARCHITECTURE.md."""
+"""Citation precision and recall metrics according to docs/ARCHITECTURE.md."""
 
 import re
 from typing import Any

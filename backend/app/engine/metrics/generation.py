@@ -1,4 +1,4 @@
-"""Generation, faithfulness, and answer relevance metrics according to SYSTEM_ARCHITECTURE.md."""
+"""Generation, faithfulness, and answer relevance metrics according to docs/ARCHITECTURE.md."""
 
 import re
 from abc import ABC, abstractmethod

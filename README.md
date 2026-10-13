@@ -1,143 +1,140 @@
-# RAGBench — Retrieval-Augmented Generation Evaluation Laboratory
+# RAGBench-Evaluation-Lab
 
-**A Parameterizable Scientific Benchmarking Platform for RAG Pipelines**
+**A reproducible framework for evaluating Retrieval-Augmented Generation pipelines through controlled retrieval experiments.**
 
 [![Release](https://img.shields.io/badge/release-v1.0.0-blue.svg)](https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab)
-[![Tests](https://img.shields.io/badge/backend%20tests-263%20passed-success.svg)](https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab)
-[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-23%20passed-success.svg)](https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab)
 [![Python](https://img.shields.io/badge/python-3.12-3776AB.svg)](https://python.org)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.115+-009688.svg)](https://fastapi.tiangolo.com)
-[![React](https://img.shields.io/badge/react-19-61dafb.svg)](https://react.dev)
-[![TypeScript](https://img.shields.io/badge/typescript-strict-3178c6.svg)](https://www.typescriptlang.org)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 
-RAGBench is an enterprise and academic-grade evaluation laboratory that treats Retrieval-Augmented Generation (RAG) pipelines as parameterizable scientific experiments. Rather than serving as an ungrounded question-answering wrapper, RAGBench systematically benchmarks factorial variations across chunking geometry, embedding representations, retrieval topologies, neural rerankers, query transformations, and generation models.
+---
+
+## Overview
+
+Retrieval-Augmented Generation (RAG) systems are frequently evaluated using end-to-end question answering benchmarks that obscure intermediate retrieval failures. When a generation pipeline produces an incorrect response, diagnosing whether the failure stemmed from document chunking boundaries, embedding representation collapse, lexical mismatches, or generative hallucination remains difficult without controlled isolation.
+
+**RAGBench-Evaluation-Lab** is an empirical research platform designed to evaluate RAG pipelines under strictly controlled experimental conditions. Rather than treating RAG as an opaque black box, RAGBench parameterizes the pipeline into factorial variations across document chunking geometry, dense versus lexical representations, rank fusion algorithms, and retrieval depth ($K$), backed by paired non-parametric statistical hypothesis testing.
 
 ---
 
-## Architecture: Dual-Engine Design
+## Research Contributions
+
+1. **Controlled RAG Evaluation Framework:** Isolates retrieval variables under identical chunking, tokenization, and query sets to eliminate confounding factors across pipeline comparisons.
+2. **Systematic Retrieval Strategy Comparisons:** Benchmarks dense semantic retrieval, lexical BM25 Okapi, and Hybrid Reciprocal Rank Fusion (RRF, $k=60$) across identical document corpora.
+3. **Multilingual Retrieval Evaluation:** Measures cross-lingual language transfer penalties and asymmetric degradation across English and Bengali information units.
+4. **Reproducible Experiment Orchestration:** Enforces immutable configuration hashes, deterministic seeds, and cryptographic SHA-256 replication manifests for all stored evidence.
+5. **Interactive Research Workbench:** Provides a React-based visual exploration environment featuring active Pareto frontier validation, multi-metric radar charts, and claim-level citation attribution inspection.
+
+---
+
+## System Architecture
+
+RAGBench operates as a dual-engine architecture:
 
 ```
-                    RAGBench Platform Architecture
-                                  │
-        ┌─────────────────────────┴─────────────────────────┐
-        ▼                                                   ▼
-   Research Engine                                   Research Workbench
-(Phases A–G · eb3bb4d)                               (Phase H · c889df1)
-        │                                                   │
-  • Ingestion & Normalization                         • Combinatorial Matrix Builder
-  • Dual Embedding Inference                          • Active Pareto Validation
-  • Factorial Sweep Execution                         • Forensic Trace Inspector
-  • Wilcoxon / Holm-Bonferroni FWER                   • Unresolved Provenance Semantics
-  • SHA-256 Replication Bundles                       • 5-Axis Bounded IR Radar
-        │                                                   │
-        └─────────────────────────┬─────────────────────────┘
-                                  ▼
-             Fully Reproducible Empirical RAG Platform
+                    RAGBench Platform Topology
+                                │
+        ┌───────────────────────┴───────────────────────┐
+        ▼                                               ▼
+┌───────────────────────────────┐       ┌───────────────────────────────┐
+│        Research Engine        │       │      Research Workbench       │
+│        (Python / CLI)         │       │        (React 19 / UI)        │
+├───────────────────────────────┤       ├───────────────────────────────┤
+│ • Deterministic Chunker       │       │ • Factorial Matrix Sweeps     │
+│ • Dense, BM25 & Hybrid RRF    │       │ • Active Pareto Validation    │
+│ • Paired Statistical Engine   │       │ • Bounded Metric Radar        │
+│ • Automated LaTeX Generator   │       │ • Claim Trace Inspector       │
+└───────────────┬───────────────┘       └───────────────▲───────────────┘
+                │                                       │
+                │        REST API / OpenAPI Contract    │
+                └───────────────────────────────────────┘
 ```
 
----
-
-## Locked Research Baselines & Empirical Evidence
-
-- **Phase G Baseline ([`eb3bb4d`](https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab/commit/eb3bb4d)):**
-  Pre-registered RQ3 Multilingual Cross-Lingual Transfer Study ($N=25$ matched bilingual information units, 12 factorial conditions) comparing `BAAI/bge-m3` (1024-dim, real PyTorch inference), Okapi BM25, and Hybrid RRF ($k=60$):
-  - **H1 (Supported):** English $->$ Bengali dense cross-lingual penalty ($\Delta = +0.8613$, Cohen's $d_z = +7.45$, $p < 0.001$).
-  - **H2 (Not Supported):** Bengali $->$ English dense cross-lingual transfer exhibits a significant retrieval gain ($\Delta = -0.8382$, Cohen's $d_z = -7.11$).
-  - **H3 (Not Supported):** Hybrid RRF does not attenuate the English $->$ Bengali dense penalty ($\Delta = -0.0989$, ns).
-  - **H4 (Not Supported):** Hybrid RRF does not attenuate the Bengali $->$ English penalty ($\Delta = -0.7981$, $p < 0.001$).
-- **Phase H Baseline ([`c889df1`](https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab/commit/c889df1)):**
-  Full-stack Academic Research Workbench frontend enforcing 13-field backend Canonical Control Signatures (`POST /api/v1/experiments/pareto/validate`), strictly suppressing Pareto frontier derivations across divergent experimental controls.
+Detailed technical contracts, metric formulas, and persistence schemas are documented in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
 
 ---
 
-## Governance & Architecture Documentation
+## Experimental Baseline & Pre-Registered Findings
 
-| Specification | Focus |
-| :--- | :--- |
-| **[`SYSTEM_ARCHITECTURE.md`](./SYSTEM_ARCHITECTURE.md)** | Mathematical formulation of IR/generation metrics, system architecture contracts, and persistence layer |
-| **[`PHASED_IMPLEMENTATION_ROADMAP.md`](./PHASED_IMPLEMENTATION_ROADMAP.md)** | Step-by-step master lifecycle roadmap from Phase 0 to Phase M |
-| **[`EVALUATION_METHODOLOGY_RQ.md`](./EVALUATION_METHODOLOGY_RQ.md)** | Formal experimental design, RQ1–RQ6 hypothesis pre-registration, and evaluation protocols |
-| **[`AGENT_EXECUTION_PROTOCOL.md`](./AGENT_EXECUTION_PROTOCOL.md)** | Quality gates, linting/typing standards, and supervisory review protocols |
+In the pre-registered Phase G reference study, RAGBench evaluated cross-lingual transfer between English and Bengali across $N=25$ matched, non-pseudoreplicated bilingual information units (12 factorial conditions) using `BAAI/bge-m3` (1024-d, cosine similarity, fixed 200/20 chunking, $K=5$).
+
+Hypothesis testing applied two-sided Wilcoxon signed-rank tests ($W, p_W$) as the primary non-parametric criterion, two-sided paired Student's $t$-tests ($t, p_t$), and Step-Down Holm-Bonferroni correction with family size $m=4$:
+
+| Hypothesis | Description | Empirical $\bar{\Delta}$ | Cohen's $d_z$ | Approved Verdict |
+| :--- | :--- | :---: | :---: | :--- |
+| **H1** | Dense cross-lingual penalty for EN $\to$ BN | **+0.8613** | **+7.45** | **Supported** ($p < 0.001$, large penalty) |
+| **H2** | Dense cross-lingual penalty for BN $\to$ EN | **-0.8382** | **-7.11** | **Not Supported** (Retrieval gain observed) |
+| **H3** | Hybrid RRF attenuates EN $\to$ BN penalty | **-0.0989** | **-2.01** | **Not Supported** (Hybrid exacerbated penalty, $p < 0.001$) |
+| **H4** | Hybrid RRF attenuates BN $\to$ EN penalty | **-0.7981** | **-1.75** | **Not Supported** (Hybrid attenuated less than dense, $p < 0.001$) |
+
+Cryptographic digests for all raw observations and statistical files are listed in [`docs/ARTIFACT_HASHES.md`](./docs/ARTIFACT_HASHES.md).
 
 ---
 
-## Quickstart: Docker Compose Orchestration
+## Quickstart & Reproduction
 
-Spin up the containerized Research Engine and Research Workbench:
+### Installation
 
 ```bash
-docker compose up -d --build
+# 1. Clone repository
+git clone https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab.git
+cd RAGBench-Evaluation-Lab
+
+# 2. Setup backend environment
+python3.12 -m venv backend/.venv
+source backend/.venv/bin/activate       # On Windows: .\backend\.venv\Scripts\Activate.ps1
+pip install -e "backend[dev]"
+
+# 3. Setup frontend dependencies
+cd frontend && npm install && cd ..
 ```
 
-- **Research Workbench UI:** `http://localhost:3000`
-- **FastAPI REST API & Docs:** `http://localhost:8000/docs`
-- **Health Check Endpoint:** `http://localhost:8000/api/v1/health`
+### Running with Docker Compose
+
+```bash
+docker compose up -d
+```
+* Research Workbench UI: [http://localhost:3000](http://localhost:3000)
+* REST API Documentation: [http://localhost:8000/api/v1/docs](http://localhost:8000/api/v1/docs)
+
+### Generating Academic Reports
+
+Generate publication-ready LaTeX tables, whitepaper manuscripts, and Markdown summaries directly from empirical artifacts:
+
+```bash
+ragbench report generate --output-dir reports/
+```
+
+For detailed replication steps and environment requirements, see [`docs/REPRODUCIBILITY.md`](./docs/REPRODUCIBILITY.md).
 
 ---
 
-## Quickstart: Local Developer Environment
+## Documentation
 
-### 1. Backend Setup & Test Suite
-
-```bash
-cd backend
-python -m venv .venv
-source .venv/bin/activate  # Or: .venv\Scripts\activate on Windows
-pip install -e ".[dev]"
-
-# Run full regression suite (260+ tests)
-pytest -q -m "not slow"
-
-# Static quality gates
-ruff check app
-mypy app
-```
-
-### 2. Frontend Research Workbench
-
-```bash
-cd frontend
-npm install
-
-# Run behavioral vitest suite (23 tests)
-npm run test:run
-
-# Lint & strict TypeScript check
-npm run lint
-npm run typecheck
-
-# Production build
-npm run build
-```
+* **[`docs/REPRODUCIBILITY.md`](./docs/REPRODUCIBILITY.md):** Complete guide to reproducing benchmarks and verification checks.
+* **[`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md):** Formal metric formulations, component contracts, and Pareto control signatures.
+* **[`docs/ARTIFACT_HASHES.md`](./docs/ARTIFACT_HASHES.md):** SHA-256 cryptographic manifest for empirical datasets and reference databases.
+* **[`CHANGELOG.md`](./CHANGELOG.md):** Version history and release notes.
 
 ---
 
-## CLI Usage: Automated Academic Report & LaTeX Export
+## Citation
 
-Generate peer-reviewed `booktabs` LaTeX tables, markdown reports, and complete whitepaper documents:
+If you use RAGBench in your research, please cite:
 
-```bash
-# Generate complete academic publication package into reports/
-python -m app.cli.main report generate --output-dir reports/
+```bibtex
+@software{zain2026ragbench,
+  author = {Zain, Syed Faraz},
+  title = {{RAGBench-Evaluation-Lab: A Parameterizable Scientific Benchmarking Platform for RAG Pipelines}},
+  url = {https://github.com/farazrasul0-cmd/RAGBench-Evaluation-Lab},
+  version = {1.0.0},
+  year = {2026}
+}
 ```
 
-Generated publication artifacts:
-- `reports/table_rq3_multilingual.tex`: Publication-ready LaTeX table with Wilcoxon $W$, paired $t$, 95% CIs, and Cohen's $d_z$.
-- `reports/BENCHMARK_REPORT.md`: Comprehensive executive markdown report.
-- `reports/whitepaper.tex`: Standalone compilable academic whitepaper document.
+See [`CITATION.cff`](./CITATION.cff) for machine-readable citation metadata.
 
 ---
 
-## Phase Lifecycle Matrix
+## License
 
-- 🟢 **Phase 0:** Foundations, Toolchain & Directory Scaffold
-- 🟢 **Phase A:** Document Ingestion, Parsing & Deterministic Chunking Engine
-- 🟢 **Phase B:** Dual-Mode Embedding & Vector Store Storage
-- 🟢 **Phase C:** Retrieval Engine Matrix (Dense, BM25 & Hybrid Fusion)
-- 🟢 **Phase D:** Query Transformations & Context Formulation
-- 🟢 **Phase E:** Automated Metric Calculation Engine (IR & Generation)
-- 🟢 **Phase F:** Experiment Orchestrator & CLI Runner
-- 🟢 **Phase G:** Multilingual Evaluation Extension (`eb3bb4d` locked)
-- 🟢 **Phase H:** Academic Research Workbench Frontend (`c889df1` locked)
-- 🟢 **Phase M:** Production Hardening, Release Sign-Off & Whitepaper Export (v1.0.0)
+This project is licensed under the MIT License — see the [`LICENSE`](./LICENSE) file for details.

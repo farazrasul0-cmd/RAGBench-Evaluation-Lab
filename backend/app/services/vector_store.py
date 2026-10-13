@@ -24,7 +24,7 @@ def compute_collection_name(
     chunking_config: dict[str, Any],
     embedding_model_name: str,
 ) -> str:
-    """Generate collection name conforming to SYSTEM_ARCHITECTURE.md contract:
+    """Generate collection name conforming to docs/ARCHITECTURE.md contract:
 
     ragbench_{dataset_id}_{chunking_hash}_{embedding_model_hash}
     """
