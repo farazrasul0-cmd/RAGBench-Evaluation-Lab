@@ -8,7 +8,7 @@ describe('RAGBench Academic Workbench App', () => {
     expect(screen.getByText('RAGBench')).toBeDefined()
     expect(screen.getByText('v1.0.0-PROD')).toBeDefined()
     expect(screen.getByText('Academic Research Workbench')).toBeDefined()
-    expect(screen.getByText('Phase H Active')).toBeDefined()
+    expect(screen.getByText('Workbench Active')).toBeDefined()
   })
 
   it('navigates between all four workbench tabs via header', async () => {

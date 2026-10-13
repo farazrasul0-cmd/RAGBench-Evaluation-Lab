@@ -8,56 +8,55 @@
 
 ---
 
-## Overview
+## What is RAGBench?
 
-Retrieval-Augmented Generation (RAG) systems are frequently evaluated using end-to-end question answering benchmarks that obscure intermediate retrieval failures. When a generation pipeline produces an incorrect response, diagnosing whether the failure stemmed from document chunking boundaries, embedding representation collapse, lexical mismatches, or generative hallucination remains difficult without controlled isolation.
+**RAGBench-Evaluation-Lab** is an experimental evaluation framework designed to benchmark Retrieval-Augmented Generation (RAG) pipelines under strictly controlled, parameterizable conditions.
 
-**RAGBench-Evaluation-Lab** is an empirical research platform designed to evaluate RAG pipelines under strictly controlled experimental conditions. Rather than treating RAG as an opaque black box, RAGBench parameterizes the pipeline into factorial variations across document chunking geometry, dense versus lexical representations, rank fusion algorithms, and retrieval depth ($K$), backed by paired non-parametric statistical hypothesis testing.
+When a RAG pipeline fails, diagnosing whether the failure was caused by chunking boundaries, embedding degradation, lexical mismatch, or LLM hallucination requires isolating intermediate retrieval stages. RAGBench isolates these variables through factorial permutations across chunking geometry, retrieval modalities (dense, sparse, hybrid), and retrieval depth ($K$), backed by paired non-parametric statistical hypothesis testing.
+
+### What Research Questions Does It Study?
+
+This repository investigates retrieval behavior across multilingual and technical domains:
+1. **Retrieval Paradigm Trade-offs:** How dense bi-encoder embeddings (`BAAI/bge-m3`), lexical search (BM25 Okapi), and Hybrid Reciprocal Rank Fusion (RRF, $k=60$) trade off retrieval recall against latency.
+2. **Cross-Lingual Language Transfer:** Measuring empirical degradation and asymmetric transfer penalties when queries and documents cross language boundaries (English $\leftrightarrow$ Bengali).
+3. **Retrieval Sensitivity:** How chunk size, token overlap, and retrieval depth affect downstream answer faithfulness and citation attribution.
+
+### What Did We Build?
+
+```
+RAGBench-Evaluation-Lab
+├── Research Engine (Backend CLI & Core)
+│   ├── ingestion       Deterministic parsing & NFKC normalization
+│   ├── chunking        Fixed, sentence, and character-level geometry
+│   ├── embeddings      Dense vector providers & Qdrant/SQLite storage
+│   ├── retrieval       Dense cosine, BM25 Okapi, and Hybrid RRF (k=60)
+│   ├── metrics         Recall@K, MRR@K, NDCG@K, Faithfulness, Citations
+│   └── experiments     Factorial sweep runner & paired statistical testing
+│
+└── Research Workbench (React 19 Interactive UI)
+    ├── experiment matrix   Combinatorial sweep configurator & scale estimation
+    ├── Pareto analysis     Active control-signature validation for fair comparison
+    ├── radar charting      Multi-axial trade-off plots across IR & generation metrics
+    └── trace inspection    Claim-level context attribution & citation verification
+```
 
 ---
 
 ## Research Contributions
 
-1. **Controlled RAG Evaluation Framework:** Isolates retrieval variables under identical chunking, tokenization, and query sets to eliminate confounding factors across pipeline comparisons.
-2. **Systematic Retrieval Strategy Comparisons:** Benchmarks dense semantic retrieval, lexical BM25 Okapi, and Hybrid Reciprocal Rank Fusion (RRF, $k=60$) across identical document corpora.
-3. **Multilingual Retrieval Evaluation:** Measures cross-lingual language transfer penalties and asymmetric degradation across English and Bengali information units.
-4. **Reproducible Experiment Orchestration:** Enforces immutable configuration hashes, deterministic seeds, and cryptographic SHA-256 replication manifests for all stored evidence.
-5. **Interactive Research Workbench:** Provides a React-based visual exploration environment featuring active Pareto frontier validation, multi-metric radar charts, and claim-level citation attribution inspection.
+1. **Controlled Evaluation Invariants:** Eliminates confounding factors by enforcing byte-exact coordinate preservation under Unicode NFKC and immutable configuration hashes.
+2. **Systematic Paradigm Comparison:** Evaluates dense semantic retrieval, BM25 Okapi, and Hybrid RRF under identical evaluation corpora.
+3. **Multilingual Transfer Evaluation:** Quantifies transfer penalties across $N=25$ matched, non-pseudoreplicated bilingual information units.
+4. **Reproducible Experiment Orchestration:** Backed by cryptographic SHA-256 manifests, paired Wilcoxon signed-rank tests, and Holm-Bonferroni correction ($m=4$).
+5. **Interactive Exploration Workbench:** Provides active Pareto frontier validation and granular claim attribution inspection.
 
 ---
 
-## System Architecture
+## Experimental Baseline & Reference Findings
 
-RAGBench operates as a dual-engine architecture:
+In the pre-registered reference study, RAGBench evaluated cross-lingual transfer between English and Bengali across $N=25$ matched bilingual information units (12 factorial conditions) using `BAAI/bge-m3` (1024-d, cosine similarity, fixed 200/20 chunking, $K=5$).
 
-```
-                    RAGBench Platform Topology
-                                │
-        ┌───────────────────────┴───────────────────────┐
-        ▼                                               ▼
-┌───────────────────────────────┐       ┌───────────────────────────────┐
-│        Research Engine        │       │      Research Workbench       │
-│        (Python / CLI)         │       │        (React 19 / UI)        │
-├───────────────────────────────┤       ├───────────────────────────────┤
-│ • Deterministic Chunker       │       │ • Factorial Matrix Sweeps     │
-│ • Dense, BM25 & Hybrid RRF    │       │ • Active Pareto Validation    │
-│ • Paired Statistical Engine   │       │ • Bounded Metric Radar        │
-│ • Automated LaTeX Generator   │       │ • Claim Trace Inspector       │
-└───────────────┬───────────────┘       └───────────────▲───────────────┘
-                │                                       │
-                │        REST API / OpenAPI Contract    │
-                └───────────────────────────────────────┘
-```
-
-Detailed technical contracts, metric formulas, and persistence schemas are documented in [`docs/ARCHITECTURE.md`](./docs/ARCHITECTURE.md).
-
----
-
-## Experimental Baseline & Pre-Registered Findings
-
-In the pre-registered Phase G reference study, RAGBench evaluated cross-lingual transfer between English and Bengali across $N=25$ matched, non-pseudoreplicated bilingual information units (12 factorial conditions) using `BAAI/bge-m3` (1024-d, cosine similarity, fixed 200/20 chunking, $K=5$).
-
-Hypothesis testing applied two-sided Wilcoxon signed-rank tests ($W, p_W$) as the primary non-parametric criterion, two-sided paired Student's $t$-tests ($t, p_t$), and Step-Down Holm-Bonferroni correction with family size $m=4$:
+Hypothesis testing applied two-sided Wilcoxon signed-rank tests ($W, p_W$) as the primary non-parametric criterion, two-sided paired Student's $t$-tests ($t, p_t$), and Step-Down Holm-Bonferroni correction ($m=4$):
 
 | Hypothesis | Description | Empirical $\bar{\Delta}$ | Cohen's $d_z$ | Approved Verdict |
 | :--- | :--- | :---: | :---: | :--- |
